@@ -1,0 +1,1410 @@
+{
+  "source_file": "상담양식.hwpx",
+  "tables": [
+    {
+      "table_index": 0,
+      "rows": 17,
+      "cols": 10,
+      "cells": [
+        {
+          "anchor": [
+            0,
+            0
+          ],
+          "span": [
+            1,
+            10
+          ],
+          "raw_text": "[25-028, 별지 제23-1호 서식]\n",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            1,
+            0
+          ],
+          "span": [
+            1,
+            10
+          ],
+          "raw_text": "활동지원급여 수요조사카드",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            2,
+            0
+          ],
+          "span": [
+            1,
+            10
+          ],
+          "raw_text": "(2쪽 중 1쪽)",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            3,
+            0
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": "이용자명",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            3,
+            1
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            3,
+            3
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "생년월일",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            3,
+            5
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            3,
+            7
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "연락처",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            3,
+            9
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            4,
+            0
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": "장애유형",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            4,
+            1
+          ],
+          "span": [
+            1,
+            4
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            4,
+            5
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "지원등급/유형",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            4,
+            7
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            5,
+            0
+          ],
+          "span": [
+            4,
+            1
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            5,
+            1
+          ],
+          "span": [
+            2,
+            1
+          ],
+          "raw_text": "주소",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            5,
+            2
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "주민등록상",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            5,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            6,
+            2
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "실제 거주지",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            6,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "* 상동\n      ",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            7,
+            1
+          ],
+          "span": [
+            3,
+            1
+          ],
+          "raw_text": "건물",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            7,
+            2
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "형태",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            7,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□단독주택   □아파트   □연립·다세대주택  □기타(               )",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "단독주택",
+            "아파트",
+            "연립·다세대주택",
+            "기타(               )"
+          ]
+        },
+        {
+          "anchor": [
+            8,
+            2
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "이용공간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            8,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□방 3 개   □거실   □화장실   □주방   □베란다",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "방 3 개",
+            "거실",
+            "화장실",
+            "주방",
+            "베란다"
+          ]
+        },
+        {
+          "anchor": [
+            9,
+            0
+          ],
+          "span": [
+            3,
+            1
+          ],
+          "raw_text": "주거환경\n(주된 거주지)",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            9,
+            2
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "층수",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            9,
+            4
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "(    층)",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            9,
+            6
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "엘리베이터 유무",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            9,
+            8
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "□ 유   □ 무",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "유",
+            "무"
+          ]
+        },
+        {
+          "anchor": [
+            10,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "교통수단 접근성",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            10,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□ 지하철         □ 버스(배차간격      분)        □ 택시  \n□ 도보  (대중교통 정거장에서 도보 이동 시간     분)\n□ 자가용 차량 (주차 가능 여부 □ 가능   □ 불가능   □ 어려움)\n□ 기타 (                                       )",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "지하철",
+            "버스(배차간격      분)",
+            "택시",
+            "도보  (대중교통 정거장에서 도보 이동 시간     분)",
+            "자가용 차량 (주차 가능 여부",
+            "가능",
+            "불가능",
+            "어려움)",
+            "기타 (                                       )"
+          ]
+        },
+        {
+          "anchor": [
+            11,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "애완동물",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            11,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□ 있음( ※종류:                 ※공격성: □ 있음    □ 해당 무  )  \n□ 없음 ",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "있음( ※종류:                 ※공격성:",
+            "있음",
+            "해당 무  )",
+            "없음"
+          ]
+        },
+        {
+          "anchor": [
+            12,
+            0
+          ],
+          "span": [
+            5,
+            1
+          ],
+          "raw_text": "건강상태\n",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            12,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "신체\n불편사항",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            12,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□ 와상상태로 손가락 등 신체의 일부도 전혀 움직일 수 없는 상태\n□ 와상상태이나 스스로 손가락 등 신체의 일부를 움직일 수 있는 상태\n□ 대부분 와상상태로 지내고 스스로 몸을 움직일 수 있으나 타인의 도움 없이는 이동할 수 없는 상태\n□ 스스로 신변처리가 어려워 도움이 필요한 상태\n□ 보조기구 등을 이용하여 스스로 이동할 수 있는 상태\n□ 인공호흡기 사용(□ 24시간    □ 불규칙    □ 기타 )\n□ 석션 등 전문 의료 처치가 필요한 상태",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "와상상태로 손가락 등 신체의 일부도 전혀 움직일 수 없는 상태",
+            "와상상태이나 스스로 손가락 등 신체의 일부를 움직일 수 있는 상태",
+            "대부분 와상상태로 지내고 스스로 몸을 움직일 수 있으나 타인의 도움 없이는 이동할 수 없는 상태",
+            "스스로 신변처리가 어려워 도움이 필요한 상태",
+            "보조기구 등을 이용하여 스스로 이동할 수 있는 상태",
+            "인공호흡기 사용(",
+            "24시간",
+            "불규칙",
+            "기타 )",
+            "석션 등 전문 의료 처치가 필요한 상태"
+          ]
+        },
+        {
+          "anchor": [
+            13,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "의사소통 및\n인지 능력",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□ 상대의 의사 파악 정도     (□ 상    □ 중    □ 하)\n□ 언어 표현 능력            (□ 상    □ 중    □ 하)\n□ 다른 의사표현 수단이 있음 (□ 예     □ 아니오)\n□ 위험을 인지함             (□ 상    □ 중    □ 하)\n□ 도전적 행동을 보임        (□ 상    □ 중    □ 하)\n□ 돌발행동을 보임           (□ 상    □ 중    □ 하)\n□ 공간인지능력이 있어서, 스스로 길을 찾을 수 있음 (□ 상 □ 중 □ 하)\n□ 집 주소나 보호자 연락처를 알고 있음          (□ 예   □ 아니오)",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "상대의 의사 파악 정도     (",
+            "상",
+            "중",
+            "하)",
+            "언어 표현 능력            (",
+            "상",
+            "중",
+            "하)",
+            "다른 의사표현 수단이 있음 (",
+            "예",
+            "아니오)",
+            "위험을 인지함             (",
+            "상",
+            "중",
+            "하)",
+            "도전적 행동을 보임        (",
+            "상",
+            "중",
+            "하)",
+            "돌발행동을 보임           (",
+            "상",
+            "중",
+            "하)",
+            "공간인지능력이 있어서, 스스로 길을 찾을 수 있음 (",
+            "상",
+            "중",
+            "하)",
+            "집 주소나 보호자 연락처를 알고 있음          (",
+            "예",
+            "아니오)"
+          ]
+        },
+        {
+          "anchor": [
+            14,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "흡연 여부",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            14,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "□ 비흡연자   □ 흡연자  ",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "비흡연자",
+            "흡연자"
+          ]
+        },
+        {
+          "anchor": [
+            15,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "이용 보조기구",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            15,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            16,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "특이사항\n(보유질병 등)",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            16,
+            4
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "* 수급자의 전염병 보유 여부 등 확인\n\n\n",
+          "field_type": "label_or_static"
+        }
+      ]
+    },
+    {
+      "table_index": 1,
+      "rows": 27,
+      "cols": 21,
+      "cells": [
+        {
+          "anchor": [
+            0,
+            0
+          ],
+          "span": [
+            1,
+            21
+          ],
+          "raw_text": "(2쪽 중 2쪽)",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            1,
+            0
+          ],
+          "span": [
+            4,
+            1
+          ],
+          "raw_text": "가구\n여건",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            1,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "가 구 \n구성원 수",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            1,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "      명 ( □ 1인 가구   □ 조부/모   □ 부/모   □ 배우자  □ 형제/자매\n          ",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "1인 가구",
+            "조부/모",
+            "부/모",
+            "배우자",
+            "형제/자매"
+          ]
+        },
+        {
+          "anchor": [
+            2,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "가구구성원의 사회활동",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            2,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "* 부모의 직장 생활(출·퇴근 시간) :\n* 수급자가 다른 가구구성원 없이 혼자 있는 시간 등 :",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            3,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "자녀 수",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            3,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "       명  (①      년생     세, ②      년생     세, ③      년생     세)",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            4,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "비상연락",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            4,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "휴대번호:                     수급자와의 관계:  ",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            5,
+            0
+          ],
+          "span": [
+            8,
+            1
+          ],
+          "raw_text": "수급자의\n사회활동",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            5,
+            1
+          ],
+          "span": [
+            4,
+            3
+          ],
+          "raw_text": "직장",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            5,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": " (직장명)                     (주소 :  )",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            6,
+            4
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "출근시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            6,
+            7
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            6,
+            13
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "퇴근시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            6,
+            16
+          ],
+          "span": [
+            1,
+            5
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            7,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "이동수단  □ 대중교통  □ 자가용 차량  □ 통근버스  □ 도보  □ 기타",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "대중교통",
+            "자가용 차량",
+            "통근버스",
+            "도보",
+            "기타"
+          ]
+        },
+        {
+          "anchor": [
+            8,
+            4
+          ],
+          "span": [
+            2,
+            17
+          ],
+          "raw_text": "(학교명)                    (주소 :         )",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            9,
+            1
+          ],
+          "span": [
+            3,
+            3
+          ],
+          "raw_text": "학교",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            10,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "등교시간                   하교시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            11,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "이동수단  □ 대중교통 □ 자가용 차량 □ 통학버스 □ 도보 □ 기타",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "대중교통",
+            "자가용 차량",
+            "통학버스",
+            "도보",
+            "기타"
+          ]
+        },
+        {
+          "anchor": [
+            12,
+            1
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "여가활동 등",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            12,
+            4
+          ],
+          "span": [
+            1,
+            17
+          ],
+          "raw_text": "* 활동 사항(주간 시간대) 및 지인·이웃 관계 * 낮 병동, 재활센터, 문화센터 등 이동지원이 필요한 주간 활동 \n 다수 발달센터 (언어, 체육 등) ",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            0
+          ],
+          "span": [
+            10,
+            1
+          ],
+          "raw_text": "장애인 \n활동지원\n욕구조사",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            1
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": "판정시간:",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            2
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            13,
+            5
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "복지부:",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            8
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            13,
+            10
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "시·도",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            12
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            13,
+            14
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": "시·군.·구:",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            17
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            13,
+            18
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "당월잔량:",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            13,
+            20
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            14,
+            1
+          ],
+          "span": [
+            1,
+            20
+          ],
+          "raw_text": "□ 신체활동지원 (1일  시간,   회)              □ 가사활동지원 (1일  시간,   회) \n□ 사회활동지원 (1일  시간,   회)              □ 기타(그 밖의 제공서비스)  (1일  시간,   회)",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "신체활동지원 (1일  시간,   회)",
+            "가사활동지원 (1일  시간,   회)",
+            "사회활동지원 (1일  시간,   회)",
+            "기타(그 밖의 제공서비스)  (1일  시간,   회)"
+          ]
+        },
+        {
+          "anchor": [
+            15,
+            1
+          ],
+          "span": [
+            1,
+            8
+          ],
+          "raw_text": "활동지원사 출퇴근시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            15,
+            9
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": " 출근시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            15,
+            12
+          ],
+          "span": [
+            1,
+            3
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            15,
+            15
+          ],
+          "span": [
+            1,
+            4
+          ],
+          "raw_text": "퇴근시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            15,
+            19
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": " ",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            16,
+            1
+          ],
+          "span": [
+            4,
+            2
+          ],
+          "raw_text": "야간 서비스 ",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            16,
+            3
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "필요 사유",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            16,
+            9
+          ],
+          "span": [
+            2,
+            12
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            17,
+            3
+          ],
+          "span": [
+            2,
+            6
+          ],
+          "raw_text": "월 필요시간",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            18,
+            9
+          ],
+          "span": [
+            1,
+            12
+          ],
+          "raw_text": "        시간/일",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            19,
+            3
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "지원 방법",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            19,
+            9
+          ],
+          "span": [
+            1,
+            12
+          ],
+          "raw_text": "□ 야간 상주  □ 필요 시 요청  □기타(               )",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "야간 상주",
+            "필요 시 요청",
+            "기타(               )"
+          ]
+        },
+        {
+          "anchor": [
+            20,
+            1
+          ],
+          "span": [
+            3,
+            8
+          ],
+          "raw_text": "활동지원인력의 요건",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            20,
+            9
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "성별",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            20,
+            11
+          ],
+          "span": [
+            1,
+            10
+          ],
+          "raw_text": " □ 여    □ 남",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "여",
+            "남"
+          ]
+        },
+        {
+          "anchor": [
+            21,
+            9
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "흡연여부",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            21,
+            11
+          ],
+          "span": [
+            1,
+            10
+          ],
+          "raw_text": " □ 비흡연자   □ 흡연자   □ 무방",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "비흡연자",
+            "흡연자",
+            "무방"
+          ]
+        },
+        {
+          "anchor": [
+            22,
+            9
+          ],
+          "span": [
+            1,
+            2
+          ],
+          "raw_text": "연령대",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            22,
+            11
+          ],
+          "span": [
+            1,
+            10
+          ],
+          "raw_text": " □ 20대  □ 30대  □ 40대 □ 50대 □ 60대 □ 기타",
+          "field_type": "checkbox_group",
+          "options_preview": [
+            "20대",
+            "30대",
+            "40대",
+            "50대",
+            "60대",
+            "기타"
+          ]
+        },
+        {
+          "anchor": [
+            23,
+            0
+          ],
+          "span": [
+            1,
+            6
+          ],
+          "raw_text": "다른 복지서비스 이용 현황",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            23,
+            6
+          ],
+          "span": [
+            1,
+            15
+          ],
+          "raw_text": "* 장애인활동지원 외에 이용하고 있는 복지서비스 내용\n",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            24,
+            0
+          ],
+          "span": [
+            1,
+            1
+          ],
+          "raw_text": "특이\n사항",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            24,
+            1
+          ],
+          "span": [
+            1,
+            20
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        },
+        {
+          "anchor": [
+            25,
+            0
+          ],
+          "span": [
+            1,
+            21
+          ],
+          "raw_text": "면담 일자: 2026-.    .     .           면담원 성명 :  \n< 유의사항 >\n ① 동 수요조사카드의 작성 전에 수급자는 개인정보의 수집·이용 및 제공 동의서를 먼저 작성하여 주시기 바랍니다. \n ② 동 수요조사카드 및 카드에 기록된 내용에 대해서 면담원 및 장애인활동지원사업 업무 담당자는 비밀을 유지하여 주시고,  장애인활동지원사업 업무 담당자 외에는 열람할 수 없도록 기관 대외비로 관리하여 주시기 바랍니다.",
+          "field_type": "label_or_static"
+        },
+        {
+          "anchor": [
+            26,
+            0
+          ],
+          "span": [
+            1,
+            21
+          ],
+          "raw_text": "",
+          "field_type": "text_blank"
+        }
+      ]
+    }
+  ]
+}

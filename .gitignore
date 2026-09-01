@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+.env
+_test_output.hwpx
+상담결과_테스트.hwpx
+streamlit.log
+.playwright-mcp/
