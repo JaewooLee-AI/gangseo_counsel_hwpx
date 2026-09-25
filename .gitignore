@@ -7,3 +7,8 @@ _test_output.hwpx
 상담결과_테스트.hwpx
 streamlit.log
 .playwright-mcp/
+.app_config.json
+*config.json
+dist/
+build/
+*.spec

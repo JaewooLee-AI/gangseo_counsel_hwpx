@@ -1,3 +1,4 @@
 flet
 python-hwpx>=6.3.0
 google-genai
+pyinstaller

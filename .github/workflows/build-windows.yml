@@ -1,0 +1,86 @@
+name: Build Windows Application
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-flet.txt
+
+      - name: Package Windows executable with Flet
+        run: |
+          flet pack app_flet.py `
+            --name GangseoCounselHWPX `
+            --product-name "강서구 활동지원 수요조사카드 자동입력" `
+            --file-description "강서구 활동지원 수요조사카드 자동입력 프로그램" `
+            --add-data "counsel.hwpx;." `
+            --hidden-import google.genai `
+            --hidden-import hwpx `
+            -y
+
+      - name: Prepare release package folder
+        run: |
+          New-Item -ItemType Directory -Force -Path release_windows
+          Copy-Item -Path dist\GangseoCounselHWPX.exe -Destination release_windows\
+          Copy-Item -Path counsel.hwpx -Destination release_windows\
+          @"
+          ==================================================
+          강서구 활동지원 수요조사카드 자동 입력 프로그램 (Windows)
+          ==================================================
+
+          1. 실행 방법:
+             - GangseoCounselHWPX.exe 파일을 실행합니다.
+             - 처음 실행 시 Windows 보호 경고창이 뜨면 [추가 정보] -> [실행]을 클릭합니다.
+
+          2. 최초 설정:
+             - 앱 왼쪽의 [설정] 메뉴를 클릭합니다.
+             - Google Gemini API Key를 입력하고 [저장]을 누릅니다.
+             - 한 번 저장해 두면 다음 실행 시에도 자동으로 유지됩니다.
+
+          3. HWPX 템플릿(counsel.hwpx):
+             - 기본 서식이 프로그램 내부에 내장되어 있으며, 본 폴더의 counsel.hwpx를 수정하여 서식을 커스텀할 수도 있습니다.
+          "@ | Out-File -FilePath release_windows\사용안내.txt -Encoding utf8
+
+      - name: Compress release package into ZIP
+        run: |
+          Compress-Archive -Path release_windows\* -DestinationPath GangseoCounselHWPX-Windows.zip -Force
+
+      - name: Upload Windows distribution artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GangseoCounselHWPX-Windows
+          path: GangseoCounselHWPX-Windows.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release on Tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: GangseoCounselHWPX-Windows.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
