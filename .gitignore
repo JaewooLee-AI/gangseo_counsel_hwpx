@@ -10,5 +10,6 @@ streamlit.log
 .app_config.json
 *config.json
 dist/
+dist_windows/
 build/
 *.spec

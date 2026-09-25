@@ -62,7 +62,7 @@ jobs:
 
           3. HWPX 템플릿(counsel.hwpx):
              - 기본 서식이 프로그램 내부에 내장되어 있으며, 본 폴더의 counsel.hwpx를 수정하여 서식을 커스텀할 수도 있습니다.
-          "@ | Out-File -FilePath release_windows\사용안내.txt -Encoding utf8
+          "@ | Out-File -FilePath release_windows\README.txt -Encoding utf8
 
       - name: Compress release package into ZIP
         run: |
