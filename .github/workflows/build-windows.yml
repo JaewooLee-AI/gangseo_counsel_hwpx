@@ -30,6 +30,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-flet.txt
 
+      - name: Locate python-hwpx schema directory
+        id: hwpx_schema
+        run: |
+          $schemaDir = python -c "import hwpx, os; print(os.path.join(os.path.dirname(hwpx.__file__), 'tools', '_schemas'))"
+          if (-not (Test-Path $schemaDir)) {
+            throw "python-hwpx schema directory not found: $schemaDir"
+          }
+          echo "path=$schemaDir" >> $env:GITHUB_OUTPUT
+
       - name: Package Windows executable with Flet
         run: |
           flet pack app_flet.py `
@@ -37,6 +46,7 @@ jobs:
             --product-name "강서구 활동지원 수요조사카드 자동입력" `
             --file-description "강서구 활동지원 수요조사카드 자동입력 프로그램" `
             --add-data "counsel.hwpx;." `
+            --add-data "${{ steps.hwpx_schema.outputs.path }};hwpx/tools/_schemas" `
             --hidden-import google.genai `
             --hidden-import hwpx `
             -y
@@ -64,17 +74,18 @@ jobs:
              - 기본 서식이 프로그램 내부에 내장되어 있으며, 본 폴더의 counsel.hwpx를 수정하여 서식을 커스텀할 수도 있습니다.
           "@ | Out-File -FilePath release_windows\README.txt -Encoding utf8
 
-      - name: Compress release package into ZIP
-        run: |
-          Compress-Archive -Path release_windows\* -DestinationPath GangseoCounselHWPX-Windows.zip -Force
-
       - name: Upload Windows distribution artifact
         uses: actions/upload-artifact@v4
         with:
           name: GangseoCounselHWPX-Windows
-          path: GangseoCounselHWPX-Windows.zip
+          path: release_windows/*
           if-no-files-found: error
           retention-days: 30
+
+      - name: Compress release package into ZIP for release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          Compress-Archive -Path release_windows\* -DestinationPath GangseoCounselHWPX-Windows.zip -Force
 
       - name: Create GitHub Release on Tag
         if: startsWith(github.ref, 'refs/tags/')
