@@ -28,7 +28,14 @@ import flet as ft
 import document_store
 import forms
 from hwpx_engine import generate_hwpx_bytes
-from llm_client import DEFAULT_MODEL, extract_fields, test_api_key
+from llm_client import (
+    DEFAULT_MODEL,
+    STYLE_BULLET,
+    STYLE_NARRATIVE,
+    WRITING_STYLES,
+    extract_fields,
+    test_api_key,
+)
 
 
 def get_resource_path(relative_path: str) -> str:
@@ -347,6 +354,21 @@ def main(page: ft.Page) -> None:
         "current_route": "counsel_input",
         "doc_id": {bid: None for bid in forms.FORM_ORDER},
     }
+    # 항목별 작성 방식(서술형/개조식). style_prefs는 사용자가 마지막으로 고른 값(설정 파일에
+    # 저장되어 새 문서의 기본값이 됨), field_styles는 지금 작성 중인 문서에 적용되는 값이다.
+    saved_styles = config.get("field_styles") or {}
+    state["style_prefs"] = {
+        bid: forms.resolve_field_styles(form, saved_styles.get(bid)) for bid, form in forms.FORMS.items()
+    }
+    state["field_styles"] = {bid: dict(styles) for bid, styles in state["style_prefs"].items()}
+
+    def config_snapshot() -> dict[str, Any]:
+        return {
+            "api_key": state["api_key"],
+            "model": state["model"],
+            "font_size": state["font_size"],
+            "field_styles": state["style_prefs"],
+        }
 
     # 2. 알림용 SnackBar (Flet 1.0 공식 show_dialog 방식)
     def snack(msg: str) -> None:
@@ -542,6 +564,11 @@ def main(page: ft.Page) -> None:
                     return
                 state["doc_id"][bid] = d["doc_id"]
                 set_widgets_from_extracted(w, fields, loaded.get("values") or {})
+                # 작성 방식이 저장되지 않은 이전 문서는 현재 기본값(마지막 선택값)을 쓴다.
+                state["field_styles"][bid] = forms.resolve_field_styles(
+                    form, loaded.get("field_styles") or state["style_prefs"][bid]
+                )
+                sync_style_buttons()
                 transcript_fields[bid].value = loaded.get("transcript") or ""
                 snack(f"문서를 불러왔습니다: {d['key'] or d['doc_id']}")
                 navigate_to(f"{bid}_review")
@@ -583,6 +610,8 @@ def main(page: ft.Page) -> None:
             state["doc_id"][bid] = None
             set_widgets_from_extracted(w, fields, {})
             transcript_fields[bid].value = ""
+            state["field_styles"][bid] = dict(state["style_prefs"][bid])
+            sync_style_buttons()
             input_status_text.value = ""
             result_summary_box.visible = False
             snack(f"{form.name} 새 문서를 시작합니다.")
@@ -630,6 +659,69 @@ def main(page: ft.Page) -> None:
             text_size=state["font_size"],
         )
         transcript_fields[bid] = transcript_field
+
+        # 항목별 작성 방식(서술형/개조식) 선택 — style_selectable 필드가 있는 업무만 표시
+        style_fields = forms.style_selectable_fields(form)
+        style_buttons: dict[str, ft.SegmentedButton] = {}
+
+        def sync_style_buttons() -> None:
+            for fid, btn in style_buttons.items():
+                btn.selected = [state["field_styles"][bid][fid]]
+
+        def on_style_change(e: ft.ControlEvent) -> None:
+            selected = list(e.control.selected or [])
+            if not selected:
+                return
+            fid = e.control.data
+            state["field_styles"][bid][fid] = selected[0]
+            state["style_prefs"][bid][fid] = selected[0]
+            save_config(config_snapshot())
+
+        for f in style_fields:
+            style_buttons[f["id"]] = ft.SegmentedButton(
+                selected=[state["field_styles"][bid][f["id"]]],
+                allow_multiple_selection=False,
+                data=f["id"],
+                on_change=on_style_change,
+                segments=[
+                    ft.Segment(value=STYLE_NARRATIVE, label=ft.Text(WRITING_STYLES[STYLE_NARRATIVE]["label"])),
+                    ft.Segment(value=STYLE_BULLET, label=ft.Text(WRITING_STYLES[STYLE_BULLET]["label"])),
+                ],
+            )
+
+        style_panel_controls: list[ft.Control] = []
+        if style_fields:
+            style_panel_controls = [
+                ft.Divider(height=1, color="#E2E8F0"),
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.FORMAT_LIST_NUMBERED, size=18, color="#7C3AED"),
+                        ft.Text("항목별 작성 방식", weight=ft.FontWeight.BOLD, size=14, color="#0F172A"),
+                    ],
+                    spacing=6,
+                ),
+                ft.Text(
+                    "AI가 각 항목을 서술형(문단) 또는 개조식(번호 목록)으로 작성합니다. "
+                    "선택은 다음 작성 때도 유지되고, 문서를 저장하면 문서별로 함께 저장됩니다.",
+                    size=12,
+                    color="#64748B",
+                ),
+                ft.ResponsiveRow(
+                    [
+                        ft.Row(
+                            [
+                                ft.Text(f["label"].split("(")[0].strip(), size=13, color="#334155", expand=True),
+                                style_buttons[f["id"]],
+                            ],
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            col={"xs": 12, "md": 6},
+                        )
+                        for f in style_fields
+                    ],
+                    spacing=24,
+                    run_spacing=8,
+                ),
+            ]
 
         input_status_text = ft.Text("", size=13)
         result_summary_box = ft.Container(visible=False)
@@ -722,7 +814,13 @@ def main(page: ft.Page) -> None:
             try:
                 model = state.get("model") or DEFAULT_MODEL
                 result = await asyncio.to_thread(
-                    extract_fields, transcript, key, form.system_prompt, fields, model
+                    extract_fields,
+                    transcript,
+                    key,
+                    form.system_prompt,
+                    fields,
+                    model,
+                    field_styles=dict(state["field_styles"][bid]),
                 )
                 extracted = {k: v for k, v in result.items() if v}
                 set_widgets_from_extracted(w, fields, extracted)
@@ -805,11 +903,14 @@ def main(page: ft.Page) -> None:
                         content=ft.Column(
                             [
                                 transcript_field,
+                                *style_panel_controls,
                                 ft.Row([btn_analyze, btn_reset], spacing=10),
                                 analyzing_progress_bar,
                                 analyzing_banner,
                             ],
                             spacing=12,
+                            # 입력창이 기본 폭으로 좁게 표시되지 않도록 카드 폭 전체로 늘린다.
+                            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                         ),
                         padding=20,
                         bgcolor="#FFFFFF",
@@ -839,7 +940,8 @@ def main(page: ft.Page) -> None:
         def on_save_draft(_: ft.ControlEvent) -> None:
             values = collect_values(w, fields)
             new_id = document_store.save_document(
-                bid, state["doc_id"][bid], current_key_value(), values, transcript_field.value or ""
+                bid, state["doc_id"][bid], current_key_value(), values, transcript_field.value or "",
+                field_styles=state["field_styles"][bid],
             )
             state["doc_id"][bid] = new_id
             refresh_docs()
@@ -862,7 +964,8 @@ def main(page: ft.Page) -> None:
                 values = collect_values(w, fields)
                 # 내보내기 직전에 문서함에도 자동 저장해 작업 내용이 유실되지 않게 한다.
                 new_id = document_store.save_document(
-                    bid, state["doc_id"][bid], current_key_value(), values, transcript_field.value or ""
+                    bid, state["doc_id"][bid], current_key_value(), values, transcript_field.value or "",
+                    field_styles=state["field_styles"][bid],
                 )
                 state["doc_id"][bid] = new_id
                 refresh_docs()
@@ -1045,12 +1148,11 @@ def main(page: ft.Page) -> None:
     def on_save_settings(_: ft.ControlEvent) -> None:
         key = (api_key_field.value or "").strip()
         model = (model_field.value or "").strip() or DEFAULT_MODEL
-        font_size = state["font_size"]
 
         state["api_key"] = key
         state["model"] = model
 
-        saved = save_config({"api_key": key, "model": model, "font_size": font_size})
+        saved = save_config(config_snapshot())
 
         update_key_badges()
 
@@ -1074,7 +1176,7 @@ def main(page: ft.Page) -> None:
         api_key_field.text_size = new_size
         model_field.text_size = new_size
 
-        save_config({"api_key": state["api_key"], "model": state["model"], "font_size": new_size})
+        save_config(config_snapshot())
         snack(f"글자 크기가 {new_size}px로 변경되었습니다.")
         page.update()
 

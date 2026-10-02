@@ -10,6 +10,9 @@ field_map.py(counsel.hwpx)와 동일한 FIELDS 리스트 포맷을 따른다. �
 예외는 일시 셀("년 월 일 요일 시 분 ~ 시 분")로, 요일까지 포함돼 있어 custom 핸들러에서
 날짜로부터 요일을 자동 계산해 조립한다(hwpx_engine.CUSTOM_HANDLERS의 interview_date 패턴).
 
+"style_selectable": True인 서술 항목은 사용자가 입력 화면에서 서술형/개조식(llm_client.WRITING_STYLES)을
+고를 수 있고, "default_style"은 샘플 회의록(files/meeting_sample_dump.json)의 실제 작성 방식을 따른다.
+
 table/anchor는 files/meeting_form_dump.json 기준 (표 인덱스, (row, col)) 이다.
 """
 
@@ -49,6 +52,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 0,
         "anchor": (8, 2),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "narrative",
     },
     {
         "id": "needs",
@@ -57,6 +62,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 0,
         "anchor": (9, 2),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "narrative",
     },
     {
         "id": "meeting_content",
@@ -65,6 +72,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 0,
         "anchor": (11, 1),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "narrative",
     },
     {
         "id": "solution_plan",
@@ -73,6 +82,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 0,
         "anchor": (13, 1),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "bullet",
     },
 
     # ------------------------------------------------------------------
@@ -88,6 +99,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 1,
         "anchor": (4, 1),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "narrative",
     },
     {
         "id": "report_intervention",
@@ -96,6 +109,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 1,
         "anchor": (5, 1),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "bullet",
     },
     {
         "id": "report_result",
@@ -104,6 +119,8 @@ FIELDS: list[dict[str, Any]] = [
         "table": 1,
         "anchor": (6, 1),
         "multiline": True,
+        "style_selectable": True,
+        "default_style": "narrative",
     },
 ]
 

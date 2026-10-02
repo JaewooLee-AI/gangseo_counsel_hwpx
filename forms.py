@@ -19,6 +19,7 @@ from typing import Any, Callable
 import field_map
 import hwpx_engine
 import meeting_field_map
+from llm_client import STYLE_NARRATIVE, WRITING_STYLES
 
 
 @dataclass
@@ -157,3 +158,19 @@ FORMS: dict[str, FormDefinition] = {
 }
 
 FORM_ORDER: list[str] = ["counsel", "meeting"]
+
+
+def style_selectable_fields(form: FormDefinition) -> list[dict[str, Any]]:
+    """사용자가 서술형/개조식을 고를 수 있는 항목(필드 정의의 "style_selectable") 목록."""
+    return [f for f in form.fields if f.get("style_selectable")]
+
+
+def resolve_field_styles(form: FormDefinition, saved: dict[str, Any] | None = None) -> dict[str, str]:
+    """항목별 작성 방식(필드 id -> llm_client.WRITING_STYLES 키)을 만든다. 필드 정의의
+    default_style을 기본으로 하고, saved(설정 파일/문서에 저장된 값) 중 유효한 값으로 덮어쓴다."""
+    saved = saved or {}
+    styles: dict[str, str] = {}
+    for f in style_selectable_fields(form):
+        value = saved.get(f["id"])
+        styles[f["id"]] = value if value in WRITING_STYLES else f.get("default_style", STYLE_NARRATIVE)
+    return styles

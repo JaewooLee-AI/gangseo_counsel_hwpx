@@ -90,8 +90,10 @@ def save_document(
     key: str,
     values: dict[str, Any],
     transcript: str = "",
+    field_styles: dict[str, str] | None = None,
 ) -> str:
     """문서를 저장한다. doc_id가 None이면 새 문서를 만들고, 있으면 같은 파일을 덮어쓴다.
+    field_styles는 항목별 작성 방식(서술형/개조식)으로, 다시 열었을 때 그대로 복원된다.
     최종적으로 저장된 doc_id를 반환한다."""
     now = datetime.now().isoformat(timespec="seconds")
     is_new = doc_id is None
@@ -109,6 +111,7 @@ def save_document(
         "key": key or "",
         "values": values,
         "transcript": transcript or "",
+        "field_styles": field_styles or {},
     }
 
     root = _writable_root(business_id)
