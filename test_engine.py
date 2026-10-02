@@ -74,7 +74,7 @@ for t in dumped:
     for c in t["cells"]:
         by_anchor[(t["table_index"], tuple(c["anchor"]))] = c["text"]
 
-sample = json.load(open("files/sample_dump.json"))
+sample = json.load(open("files/sample_dump.json", encoding="utf-8"))
 sample_by_anchor = {}
 for t in sample:
     for c in t["cells"]:

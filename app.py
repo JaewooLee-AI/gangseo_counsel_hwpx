@@ -18,10 +18,12 @@ from pathlib import Path
 import streamlit as st
 
 from field_map import FIELDS
+from forms import FORMS
 from hwpx_engine import generate_hwpx_bytes
 from llm_client import DEFAULT_MODEL, extract_fields, test_api_key
 
 TEMPLATE_PATH = "counsel.hwpx"
+_COUNSEL_FORM = FORMS["counsel"]
 
 st.set_page_config(page_title="강서구 활동지원 상담 자동입력", layout="wide")
 
@@ -111,7 +113,7 @@ if reset_clicked:
 if analyze_clicked:
     with st.spinner("Gemini로 상담 내용을 분석하는 중..."):
         try:
-            result = extract_fields(transcript, api_key, model)
+            result = extract_fields(transcript, api_key, _COUNSEL_FORM.system_prompt, FIELDS, model)
             st.session_state["extracted"] = {k: v for k, v in result.items() if v}
             st.session_state["form_version"] += 1
             st.success("분석 완료. 아래에서 값을 확인하고 필요하면 수정한 뒤 문서를 생성하세요.")

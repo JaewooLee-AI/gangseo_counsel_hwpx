@@ -1,16 +1,17 @@
 """
 app_flet.py
 
-강서구 활동지원급여 수요조사카드(counsel.hwpx) 자동 입력 Flet(데스크톱) 앱.
+강서구 복지 업무(활동지원급여 수요조사카드 / 중점사례 회의록) 자동 입력 Flet(데스크톱) 앱.
 Google Stitch AI의 "Civic Trust Desktop" 디자인 시스템을 적용한 프리미엄 UI 버전.
 
 주요 UI/UX:
   - Midnight Slate(#0F172A) 다크 사이드바 네비게이션
   - Soft Slate(#F8FAFC) 캔버스 및 Pure White(#FFFFFF) 카드 섹션 분할
-  - 1쪽/2쪽 필드를 논리적 그룹(인적사항, 주거/환경, 건강/소통, 급여/서비스 등)으로 카드화
+  - 상단 업무 전환(수요조사카드 / 중점사례 회의록) — forms.py 레지스트리 기반
+  - 업무별 문서함(저장/불러오기/수정) → 입력(AI 분석) → 값 확인 및 HWPX 생성 3단계 화면
   - Gemini API 키 및 설정 영구 보관 (~/.gangseo_counsel_config.json)
+  - 문서함 저장 파일: ~/.gangseo_counsel_docs/<업무>/<생성일자-순번>.json (document_store.py)
   - 폰트 크기(13/15/17/19px) 실시간 변경 및 영구 보관
-  - 상담 입력 → AI 추출 요약 → 값 확인/수정 → 즉시 HWPX 생성/저장
 """
 
 from __future__ import annotations
@@ -24,7 +25,8 @@ from typing import Any
 
 import flet as ft
 
-from field_map import FIELDS
+import document_store
+import forms
 from hwpx_engine import generate_hwpx_bytes
 from llm_client import DEFAULT_MODEL, extract_fields, test_api_key
 
@@ -45,23 +47,20 @@ def get_resource_path(relative_path: str) -> str:
     return relative_path
 
 
-TEMPLATE_PATH = get_resource_path("counsel.hwpx")
 EMPTY_CHOICE = "(선택 안 함)"
 
 CONFIG_PATH = Path.home() / ".gangseo_counsel_config.json"
 LOCAL_CONFIG_PATH = Path(".app_config.json")
 
-EXAMPLE = (
-    "이용자 이름은 김철수이고 생년월일은 90년생입니다. 연락처는 010-1234-5678이고요, "
-    "지체장애이시고 활동지원 등급은 14구간(가형)이에요. 강서구 화곡동 빌라 3층에 "
-    "혼자 살고 계시고 엘리베이터는 없어요. 비흡연자시고 애완동물은 안 키우세요."
-)
-
 _MULTILINE_HINTS = ("특이사항", "여가활동", "사회활동", "직장", "학교", "자녀", "복지서비스", "필요 사유")
 
 
-def _is_multiline(label: str) -> bool:
-    return any(h in label for h in _MULTILINE_HINTS)
+def _is_multiline(f: dict[str, Any]) -> bool:
+    """필드 dict에 명시적 "multiline" 플래그가 있으면 그것을, 없으면 라벨 키워드
+    휴리스틱을 사용한다(counsel.hwpx 쪽 기존 필드들은 플래그가 없어 휴리스틱으로 판정됨)."""
+    if f.get("multiline"):
+        return True
+    return any(h in f["label"] for h in _MULTILINE_HINTS)
 
 
 # ---------------------------------------------------------------------------
@@ -97,20 +96,20 @@ def save_config(cfg: dict[str, Any]) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# 위젯 레지스트리 및 폰트 크기 동적 조절
+# 위젯 레지스트리 및 폰트 크기 동적 조절 (업무별 fields 파라미터화)
 # ---------------------------------------------------------------------------
-def build_widgets(font_size: int = 15) -> dict[str, Any]:
+def build_widgets(fields: list[dict[str, Any]], font_size: int = 15) -> dict[str, Any]:
     """값 id -> Flet 컨트롤 매핑 생성"""
     widgets: dict[str, Any] = {}
     label_style = ft.TextStyle(size=font_size)
 
-    for f in FIELDS:
+    for f in fields:
         kind = f["kind"]
         if kind == "text":
             widgets[f["id"]] = ft.TextField(
                 label=f["label"],
-                multiline=_is_multiline(f["label"]),
-                min_lines=3 if _is_multiline(f["label"]) else 1,
+                multiline=_is_multiline(f),
+                min_lines=3 if _is_multiline(f) else 1,
                 text_size=font_size,
                 label_style=label_style,
                 margin=ft.Margin(left=0, top=6, right=0, bottom=2),
@@ -169,9 +168,11 @@ def apply_font_size(widgets: dict[str, Any], font_size: int) -> None:
                 blank.label_style = label_style
 
 
-def set_widgets_from_extracted(widgets: dict[str, Any], extracted: dict[str, Any]) -> None:
+def set_widgets_from_extracted(
+    widgets: dict[str, Any], fields: list[dict[str, Any]], extracted: dict[str, Any]
+) -> None:
     """AI 추출값(또는 {})을 위젯에 반영한다."""
-    for f in FIELDS:
+    for f in fields:
         kind = f["kind"]
         fid = f["id"]
         if kind == "text":
@@ -193,10 +194,10 @@ def set_widgets_from_extracted(widgets: dict[str, Any], extracted: dict[str, Any
             widgets[fid].value = val if val in f["options"] else EMPTY_CHOICE
 
 
-def collect_values(widgets: dict[str, Any]) -> dict[str, Any]:
+def collect_values(widgets: dict[str, Any], fields: list[dict[str, Any]]) -> dict[str, Any]:
     """위젯 상태에서 hwpx_engine.apply_fields용 flat dict를 만든다."""
     values: dict[str, Any] = {}
-    for f in FIELDS:
+    for f in fields:
         kind = f["kind"]
         fid = f["id"]
         if kind == "text":
@@ -217,11 +218,13 @@ def collect_values(widgets: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Stitch 스타일 그룹 카드 빌더
 # ---------------------------------------------------------------------------
-def controls_for_fields(widgets: dict[str, Any], field_ids: list[str]) -> list[ft.Control]:
+def controls_for_fields(
+    widgets: dict[str, Any], fields: list[dict[str, Any]], field_ids: list[str]
+) -> list[ft.Control]:
     """특정 필드 ID 목록에 대한 입력 컨트롤들을 순서대로 반환한다."""
     id_set = set(field_ids)
     controls: list[ft.Control] = []
-    for f in FIELDS:
+    for f in fields:
         fid = f["id"]
         if fid not in id_set:
             continue
@@ -290,57 +293,44 @@ def create_section_card(title: str, subtitle: str, controls: list[ft.Control], i
     )
 
 
-def widgets_for_table(widgets: dict[str, Any], table_idx: int) -> list[ft.Control]:
-    """특정 표(0=1쪽, 1=2쪽)를 Stitch 스타일의 3대 섹션 카드로 분할 생성한다."""
-    if table_idx == 0:
-        t0_ids = [f["id"] for f in FIELDS if f["table"] == 0]
-        card1 = create_section_card(
-            "기본 인적사항",
-            "성명, 생년월일, 연락처, 장애유형, 판정등급 및 주소 정보",
-            controls_for_fields(widgets, t0_ids[:7]),
-            ft.Icons.PERSON_OUTLINE,
+_ICONS = {
+    "person": ft.Icons.PERSON_OUTLINE,
+    "home": ft.Icons.HOME_WORK_OUTLINED,
+    "health": ft.Icons.HEALTH_AND_SAFETY_OUTLINED,
+    "people": ft.Icons.PEOPLE_OUTLINE,
+    "time": ft.Icons.ACCESS_TIME_ROUNDED,
+    "check": ft.Icons.FACT_CHECK_OUTLINED,
+    "note": ft.Icons.EDIT_NOTE,
+}
+
+
+def widgets_for_table(
+    widgets: dict[str, Any],
+    fields: list[dict[str, Any]],
+    review_sections: dict[int, list[tuple[str, str, str, list[str]]]],
+    table_idx: int,
+) -> list[ft.Control]:
+    """forms.FormDefinition.review_sections 정의대로 특정 표를 섹션 카드들로 렌더링한다."""
+    sections = review_sections.get(table_idx, [])
+    return [
+        create_section_card(
+            title, subtitle, controls_for_fields(widgets, fields, ids), _ICONS.get(icon, ft.Icons.ARTICLE)
         )
-        card2 = create_section_card(
-            "주거 및 교통환경",
-            "건물형태, 방 개수, 층수/승강기, 대중교통 및 반려동물 유무",
-            controls_for_fields(widgets, t0_ids[7:19]),
-            ft.Icons.HOME_WORK_OUTLINED,
-        )
-        card3 = create_section_card(
-            "신체상태 및 소통특성",
-            "신체 제약사항, 인공호흡기, 의사소통 수준, 공간인지, 흡연 및 건강 특이사항",
-            controls_for_fields(widgets, t0_ids[19:]),
-            ft.Icons.HEALTH_AND_SAFETY_OUTLINED,
-        )
-        return [card1, card2, card3]
-    else:
-        t1_ids = [f["id"] for f in FIELDS if f["table"] == 1]
-        card1 = create_section_card(
-            "가구 및 사회활동",
-            "동거 가구구성원, 자녀정보, 비상연락처, 직장/학교 출퇴근 및 여가활동",
-            controls_for_fields(widgets, t1_ids[:13]),
-            ft.Icons.PEOPLE_OUTLINE,
-        )
-        card2 = create_section_card(
-            "지원급여 및 희망 서비스",
-            "판정 인정시간, 신체/가사/사회활동 서비스 시간 및 야간급여 희망 사유",
-            controls_for_fields(widgets, t1_ids[13:27]),
-            ft.Icons.ACCESS_TIME_ROUNDED,
-        )
-        card3 = create_section_card(
-            "활동지원사 조건 및 상담 총평",
-            "희망 지원사 성별/연령/흡연여부 매칭조건 및 종합 면담 총평",
-            controls_for_fields(widgets, t1_ids[27:]),
-            ft.Icons.FACT_CHECK_OUTLINED,
-        )
-        return [card1, card2, card3]
+        for title, subtitle, icon, ids in sections
+    ]
+
+
+def _format_dt(iso_text: str) -> str:
+    if not iso_text:
+        return ""
+    return iso_text.replace("T", " ")[:16]
 
 
 # ---------------------------------------------------------------------------
 # Flet Application Main (Stitch Theme)
 # ---------------------------------------------------------------------------
 def main(page: ft.Page) -> None:
-    page.title = "강서구 활동지원 상담 기록 → HWPX 서식 자동 입력"
+    page.title = "강서구 복지 업무 자동화 (수요조사카드 / 중점사례 회의록)"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = "#F8FAFC"  # Stitch Canvas Slate
 
@@ -351,11 +341,12 @@ def main(page: ft.Page) -> None:
     saved_font_size = int(config.get("font_size", 15))
 
     state: dict[str, Any] = {
-        "extracted": {},
-        "generated_bytes": None,
         "api_key": saved_key,
         "model": saved_model,
         "font_size": saved_font_size,
+        "business_id": forms.FORM_ORDER[0],
+        "nav_index": 0,
+        "doc_id": {bid: None for bid in forms.FORM_ORDER},
     }
 
     # 2. 알림용 SnackBar (Flet 1.0 공식 show_dialog 방식)
@@ -373,29 +364,31 @@ def main(page: ft.Page) -> None:
         except Exception:
             pass
 
-    # 3. 위젯 셋 생성
-    widgets = build_widgets(font_size=state["font_size"])
+    # 3. 업무별 위젯 셋 생성
+    widgets: dict[str, dict[str, Any]] = {
+        bid: build_widgets(form.fields, font_size=state["font_size"]) for bid, form in forms.FORMS.items()
+    }
 
-    # 4. 파일 저장 픽커
+    # 4. 파일 저장 픽커 (업무 공용, 저장 시점에 파일명만 다르게 지정)
     file_picker = ft.FilePicker()
 
-    async def do_save_file(data: bytes) -> None:
+    async def do_save_file(data: bytes, file_name: str, status_text: ft.Text) -> None:
         saved_path = await file_picker.save_file(
             dialog_title="결과 HWPX 저장",
-            file_name="상담결과.hwpx",
+            file_name=file_name,
             src_bytes=data,
         )
         if saved_path:
-            review_status_text.value = f"저장 완료: {saved_path}"
-            review_status_text.color = "#059669"
+            status_text.value = f"저장 완료: {saved_path}"
+            status_text.color = "#059669"
             snack(f"HWPX 파일이 성공적으로 저장되었습니다:\n{saved_path}")
         else:
-            review_status_text.value = "저장이 취소되었습니다."
-            review_status_text.color = "#64748B"
+            status_text.value = "저장이 취소되었습니다."
+            status_text.color = "#64748B"
         page.update()
 
     # -----------------------------------------------------------------------
-    # 상태 알림 뱃지 갱신 헬퍼
+    # 상태 알림 뱃지 갱신 헬퍼 (API 키는 업무 공용)
     # -----------------------------------------------------------------------
     def update_key_badges() -> None:
         has_key = bool((state["api_key"] or "").strip())
@@ -410,15 +403,16 @@ def main(page: ft.Page) -> None:
             settings_key_badge.bgcolor = "#ECFDF5"
             settings_key_badge.border = ft.Border.all(1, "#A7F3D0")
 
-            input_key_badge.content = ft.Row(
-                [
-                    ft.Icon(ft.Icons.CHECK_CIRCLE, color="#10B981", size=16),
-                    ft.Text("Gemini API 연동 준비 완료", color="#065F46", size=12, weight=ft.FontWeight.W_500),
-                ],
-                spacing=6,
-            )
-            input_key_badge.bgcolor = "#ECFDF5"
-            input_key_badge.border = ft.Border.all(1, "#A7F3D0")
+            for badge in input_key_badges.values():
+                badge.content = ft.Row(
+                    [
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color="#10B981", size=16),
+                        ft.Text("Gemini API 연동 준비 완료", color="#065F46", size=12, weight=ft.FontWeight.W_500),
+                    ],
+                    spacing=6,
+                )
+                badge.bgcolor = "#ECFDF5"
+                badge.border = ft.Border.all(1, "#A7F3D0")
 
             rail_status_icon.name = ft.Icons.CHECK_CIRCLE
             rail_status_icon.color = "#10B981"
@@ -434,16 +428,17 @@ def main(page: ft.Page) -> None:
             settings_key_badge.bgcolor = "#FFFBEB"
             settings_key_badge.border = ft.Border.all(1, "#FDE68A")
 
-            input_key_badge.content = ft.Row(
-                [
-                    ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color="#F59E0B", size=16),
-                    ft.Text("API Key 미설정 — [설정] 메뉴에서 API 키를 등록해주세요.", color="#92400E", size=12),
-                    ft.TextButton("설정으로 이동", on_click=lambda _: switch_nav(2)),
-                ],
-                spacing=6,
-            )
-            input_key_badge.bgcolor = "#FFFBEB"
-            input_key_badge.border = ft.Border.all(1, "#FDE68A")
+            for badge in input_key_badges.values():
+                badge.content = ft.Row(
+                    [
+                        ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color="#F59E0B", size=16),
+                        ft.Text("API Key 미설정 — [설정] 메뉴에서 API 키를 등록해주세요.", color="#92400E", size=12),
+                        ft.TextButton("설정으로 이동", on_click=lambda _: switch_nav(3)),
+                    ],
+                    spacing=6,
+                )
+                badge.bgcolor = "#FFFBEB"
+                badge.border = ft.Border.all(1, "#FDE68A")
 
             rail_status_icon.name = ft.Icons.WARNING_AMBER_ROUNDED
             rail_status_icon.color = "#F59E0B"
@@ -478,389 +473,504 @@ def main(page: ft.Page) -> None:
     )
 
     settings_key_badge = ft.Container(padding=12, border_radius=8)
-    input_key_badge = ft.Container(padding=ft.Padding(left=12, top=6, right=12, bottom=6), border_radius=8)
+    input_key_badges: dict[str, ft.Container] = {
+        bid: ft.Container(padding=ft.Padding(left=12, top=6, right=12, bottom=6), border_radius=8)
+        for bid in forms.FORM_ORDER
+    }
 
     # -----------------------------------------------------------------------
-    # 1. 상담내역 입력 화면 컨트롤
+    # 업무별 화면(문서함 / 입력 / 값확인) 팩토리
     # -----------------------------------------------------------------------
-    transcript_field = ft.TextField(
-        label="상담 대화 내용 또는 메모 입력",
-        multiline=True,
-        min_lines=10,
-        max_lines=16,
-        hint_text=EXAMPLE,
-        text_size=state["font_size"],
-    )
-    input_status_text = ft.Text("", size=13)
-    result_summary_box = ft.Container(visible=False)
+    transcript_fields: dict[str, ft.TextField] = {}
+    refresh_funcs: dict[str, Any] = {}
 
-    btn_analyze = ft.FilledButton(
-        "AI로 분석하기",
-        icon=ft.Icons.AUTO_AWESOME,
-        style=ft.ButtonStyle(
-            bgcolor="#2563EB",
-            color=ft.Colors.WHITE,
-            shape=ft.RoundedRectangleBorder(radius=8),
-        ),
-    )
-    btn_reset = ft.OutlinedButton(
-        "입력값 초기화",
-        icon=ft.Icons.REFRESH,
-        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-    )
+    def build_business_views(bid: str, form: forms.FormDefinition):
+        fields = form.fields
+        w = widgets[bid]
+        template_path = get_resource_path(form.template_filename)
 
-    analyzing_progress_bar = ft.ProgressBar(
-        color="#2563EB",
-        bgcolor="#DBEAFE",
-        visible=False,
-    )
+        # ---------------- 문서함 화면 ----------------
+        docs_column = ft.Column(spacing=8)
 
-    analyzing_banner = ft.Container(
-        content=ft.Row(
-            [
-                ft.ProgressRing(width=26, height=26, color="#2563EB", stroke_width=3),
-                ft.Column(
-                    [
-                        ft.Text(
-                            "Gemini AI가 상담 대화 내용을 분석하고 있습니다...",
-                            weight=ft.FontWeight.BOLD,
-                            size=14,
-                            color="#1E3A8A",
+        def refresh_docs() -> None:
+            docs = document_store.list_documents(bid)
+            if not docs:
+                docs_column.controls = [
+                    ft.Container(
+                        content=ft.Text(
+                            "아직 저장된 문서가 없습니다. [+ 새 문서]를 눌러 작성을 시작하세요.",
+                            size=13,
+                            color="#64748B",
                         ),
-                        ft.Text(
-                            "인적사항, 주거환경, 건강·의사소통, 지원급여 등 65개 서식 항목을 추출 중입니다. 잠시만 기다려주세요.",
-                            size=12,
-                            color="#2563EB",
-                        ),
-                    ],
-                    spacing=2,
-                    expand=True,
-                ),
-            ],
-            spacing=14,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        ),
-        bgcolor="#EFF6FF",
-        border=ft.Border.all(1, "#BFDBFE"),
-        border_radius=10,
-        padding=16,
-        visible=False,
-    )
-
-    def on_reset_input(_: ft.ControlEvent) -> None:
-        transcript_field.value = ""
-        state["extracted"] = {}
-        set_widgets_from_extracted(widgets, {})
-        input_status_text.value = "입력값이 초기화되었습니다."
-        input_status_text.color = "#64748B"
-        result_summary_box.visible = False
-        snack("입력창과 추출 데이터가 초기화되었습니다.")
-        page.update()
-
-    async def on_analyze(_: ft.ControlEvent) -> None:
-        key = (state["api_key"] or "").strip()
-        transcript = (transcript_field.value or "").strip()
-        if not key:
-            input_status_text.value = "API 키가 설정되지 않았습니다. [설정] 메뉴에서 먼저 등록해주세요."
-            input_status_text.color = "#DC2626"
-            snack("API 키가 설정되지 않았습니다. [설정] 메뉴에서 등록해주세요.")
+                        padding=20,
+                    )
+                ]
+            else:
+                docs_column.controls = [doc_row(d) for d in docs]
             page.update()
-            return
-        if not transcript:
-            input_status_text.value = "상담 내용을 먼저 입력해주세요."
-            input_status_text.color = "#DC2626"
-            snack("상담 내용을 먼저 입력해주세요.")
-            page.update()
-            return
 
-        # 동작 중임을 사용자가 즉시 인지하도록 버튼에 스피너(뱅글뱅글) 표시 및 배너 노출
-        btn_analyze.disabled = True
-        btn_analyze.icon = None
-        btn_analyze.content = ft.Row(
-            [
-                ft.ProgressRing(width=16, height=16, stroke_width=2.5, color=ft.Colors.WHITE),
-                ft.Text("AI 분석 진행 중...", color=ft.Colors.WHITE, size=14, weight=ft.FontWeight.W_600),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            spacing=8,
-        )
-        btn_reset.disabled = True
-        analyzing_banner.visible = True
-        analyzing_progress_bar.visible = True
-        input_status_text.value = ""
-        result_summary_box.visible = False
-        page.update()
+        def doc_row(d: dict[str, Any]) -> ft.Container:
+            def on_open(_: ft.ControlEvent) -> None:
+                loaded = document_store.load_document(bid, d["doc_id"])
+                if not loaded:
+                    snack("문서를 불러오지 못했습니다.")
+                    return
+                state["doc_id"][bid] = d["doc_id"]
+                set_widgets_from_extracted(w, fields, loaded.get("values") or {})
+                transcript_fields[bid].value = loaded.get("transcript") or ""
+                snack(f"문서를 불러왔습니다: {d['key'] or d['doc_id']}")
+                switch_nav(2)
 
-        # UI 업데이트가 플러터 클라이언트에 즉각 전송되어 스피너가 회전할 수 있도록 이벤트 루프 양보
-        await asyncio.sleep(0.05)
+            def on_delete(_: ft.ControlEvent) -> None:
+                document_store.delete_document(bid, d["doc_id"])
+                if state["doc_id"][bid] == d["doc_id"]:
+                    state["doc_id"][bid] = None
+                snack(f"문서를 삭제했습니다: {d['key'] or d['doc_id']}")
+                refresh_docs()
 
-        try:
-            model = state.get("model") or DEFAULT_MODEL
-            # 백그라운드 스레드에서 Gemini API 실행 (UI 프리징 완전 방지!)
-            result = await asyncio.to_thread(extract_fields, transcript, key, model)
-            extracted = {k: v for k, v in result.items() if v}
-            state["extracted"] = extracted
-            set_widgets_from_extracted(widgets, extracted)
-
-            count = len(extracted)
-            input_status_text.value = f"분석 완료! 총 {count}개의 항목이 성공적으로 추출되었습니다."
-            input_status_text.color = "#059669"
-
-            # Stitch 스타일의 AI 결과 요약 콜아웃
-            result_summary_box.content = ft.Container(
+            return ft.Container(
                 content=ft.Row(
                     [
-                        ft.Icon(ft.Icons.CHECK_CIRCLE, color="#2563EB", size=24),
                         ft.Column(
                             [
-                                ft.Text(f"추출 완료된 서식 항목: 총 {count}개", weight=ft.FontWeight.BOLD, size=14, color="#0F172A"),
-                                ft.Text("2번 메뉴로 이동하여 추출된 값을 검토하고 HWPX 문서를 즉시 생성하세요.", size=12, color="#475569"),
+                                ft.Text(d["key"] or "(이름 미입력)", weight=ft.FontWeight.W_600, size=14, color="#0F172A"),
+                                ft.Text(
+                                    f"문서번호 {d['doc_id']}  ·  수정 {_format_dt(d['updated_at'])}",
+                                    size=12,
+                                    color="#64748B",
+                                ),
+                            ],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        ft.TextButton("열기", icon=ft.Icons.FOLDER_OPEN, on_click=on_open),
+                        ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, icon_color="#DC2626", on_click=on_delete, tooltip="삭제"),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                padding=ft.Padding(left=16, top=10, right=10, bottom=10),
+                bgcolor="#FFFFFF",
+                border=ft.Border.all(1, "#E2E8F0"),
+                border_radius=10,
+            )
+
+        def on_new_doc(_: ft.ControlEvent) -> None:
+            state["doc_id"][bid] = None
+            set_widgets_from_extracted(w, fields, {})
+            transcript_fields[bid].value = ""
+            input_status_text.value = ""
+            result_summary_box.visible = False
+            snack("새 문서를 시작합니다.")
+            switch_nav(1)
+
+        view_docs = ft.Column(
+            controls=[
+                ft.Row(
+                    [
+                        ft.Column(
+                            [
+                                ft.Text(f"{form.name} — 문서함", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                ft.Text("저장된 문서를 불러와 수정하거나, 새 문서를 작성하세요.", size=13, color="#475569"),
+                            ],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        ft.FilledButton(
+                            "+ 새 문서",
+                            icon=ft.Icons.ADD,
+                            style=ft.ButtonStyle(
+                                bgcolor="#2563EB", color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)
+                            ),
+                            on_click=on_new_doc,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                docs_column,
+            ],
+            spacing=14,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+        )
+        refresh_funcs[bid] = refresh_docs
+
+        # ---------------- 입력(AI 분석) 화면 ----------------
+        transcript_field = ft.TextField(
+            label=f"{form.name} — 입력 내용 또는 메모",
+            multiline=True,
+            min_lines=10,
+            max_lines=16,
+            hint_text=form.example_transcript,
+            text_size=state["font_size"],
+        )
+        transcript_fields[bid] = transcript_field
+
+        input_status_text = ft.Text("", size=13)
+        result_summary_box = ft.Container(visible=False)
+
+        btn_analyze = ft.FilledButton(
+            "AI로 분석하기",
+            icon=ft.Icons.AUTO_AWESOME,
+            style=ft.ButtonStyle(bgcolor="#2563EB", color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)),
+        )
+        btn_reset = ft.OutlinedButton(
+            "입력값 초기화", icon=ft.Icons.REFRESH, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8))
+        )
+        analyzing_progress_bar = ft.ProgressBar(color="#2563EB", bgcolor="#DBEAFE", visible=False)
+        analyzing_banner = ft.Container(
+            content=ft.Row(
+                [
+                    ft.ProgressRing(width=26, height=26, color="#2563EB", stroke_width=3),
+                    ft.Column(
+                        [
+                            ft.Text(
+                                "Gemini AI가 입력 내용을 분석하고 있습니다...",
+                                weight=ft.FontWeight.BOLD,
+                                size=14,
+                                color="#1E3A8A",
+                            ),
+                            ft.Text(
+                                f"{form.name} 서식의 각 항목을 추출 중입니다. 잠시만 기다려주세요.",
+                                size=12,
+                                color="#2563EB",
+                            ),
+                        ],
+                        spacing=2,
+                        expand=True,
+                    ),
+                ],
+                spacing=14,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            bgcolor="#EFF6FF",
+            border=ft.Border.all(1, "#BFDBFE"),
+            border_radius=10,
+            padding=16,
+            visible=False,
+        )
+
+        def on_reset_input(_: ft.ControlEvent) -> None:
+            transcript_field.value = ""
+            set_widgets_from_extracted(w, fields, {})
+            input_status_text.value = "입력값이 초기화되었습니다."
+            input_status_text.color = "#64748B"
+            result_summary_box.visible = False
+            snack("입력창과 추출 데이터가 초기화되었습니다.")
+            page.update()
+
+        async def on_analyze(_: ft.ControlEvent) -> None:
+            key = (state["api_key"] or "").strip()
+            transcript = (transcript_field.value or "").strip()
+            if not key:
+                input_status_text.value = "API 키가 설정되지 않았습니다. [설정] 메뉴에서 먼저 등록해주세요."
+                input_status_text.color = "#DC2626"
+                snack("API 키가 설정되지 않았습니다. [설정] 메뉴에서 등록해주세요.")
+                page.update()
+                return
+            if not transcript:
+                input_status_text.value = "내용을 먼저 입력해주세요."
+                input_status_text.color = "#DC2626"
+                snack("내용을 먼저 입력해주세요.")
+                page.update()
+                return
+
+            btn_analyze.disabled = True
+            btn_analyze.icon = None
+            btn_analyze.content = ft.Row(
+                [
+                    ft.ProgressRing(width=16, height=16, stroke_width=2.5, color=ft.Colors.WHITE),
+                    ft.Text("AI 분석 진행 중...", color=ft.Colors.WHITE, size=14, weight=ft.FontWeight.W_600),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=8,
+            )
+            btn_reset.disabled = True
+            analyzing_banner.visible = True
+            analyzing_progress_bar.visible = True
+            input_status_text.value = ""
+            result_summary_box.visible = False
+            page.update()
+
+            await asyncio.sleep(0.05)
+
+            try:
+                model = state.get("model") or DEFAULT_MODEL
+                result = await asyncio.to_thread(
+                    extract_fields, transcript, key, form.system_prompt, fields, model
+                )
+                extracted = {k: v for k, v in result.items() if v}
+                set_widgets_from_extracted(w, fields, extracted)
+
+                count = len(extracted)
+                input_status_text.value = f"분석 완료! 총 {count}개의 항목이 성공적으로 추출되었습니다."
+                input_status_text.color = "#059669"
+
+                result_summary_box.content = ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Icon(ft.Icons.CHECK_CIRCLE, color="#2563EB", size=24),
+                            ft.Column(
+                                [
+                                    ft.Text(f"추출 완료된 서식 항목: 총 {count}개", weight=ft.FontWeight.BOLD, size=14, color="#0F172A"),
+                                    ft.Text("값 확인 메뉴로 이동하여 추출된 값을 검토하고 저장/HWPX 생성을 진행하세요.", size=12, color="#475569"),
+                                ],
+                                expand=True,
+                                spacing=2,
+                            ),
+                            ft.FilledButton(
+                                "값 확인 및 HWPX 생성으로 이동 →",
+                                icon=ft.Icons.ARROW_FORWARD,
+                                style=ft.ButtonStyle(
+                                    bgcolor="#2563EB", color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)
+                                ),
+                                on_click=lambda _: switch_nav(2),
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    bgcolor="#EFF6FF",
+                    border=ft.Border.all(1, "#BFDBFE"),
+                    border_radius=12,
+                    padding=16,
+                )
+                result_summary_box.visible = True
+                snack(f"AI 분석 완료 ({count}개 항목 추출). 값 확인 화면으로 이동할 수 있습니다.")
+            except Exception as exc:
+                input_status_text.value = f"분석 중 오류가 발생했습니다: {exc}"
+                input_status_text.color = "#DC2626"
+                result_summary_box.visible = False
+                snack(f"분석 중 오류 발생: {exc}")
+            finally:
+                btn_analyze.disabled = False
+                btn_analyze.icon = ft.Icons.AUTO_AWESOME
+                btn_analyze.content = "AI로 분석하기"
+                btn_reset.disabled = False
+                analyzing_banner.visible = False
+                analyzing_progress_bar.visible = False
+                page.update()
+
+        btn_analyze.on_click = on_analyze
+        btn_reset.on_click = on_reset_input
+
+        view_input = ft.Column(
+            controls=[
+                ft.Row(
+                    [
+                        ft.Column(
+                            [
+                                ft.Text(f"{form.name} — 입력 및 AI 분석", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                ft.Text(
+                                    "내용을 입력하면 Gemini AI가 서식의 각 항목을 자동으로 추출합니다. "
+                                    "AI 분석 없이 다음 화면에서 바로 값을 입력해도 됩니다.",
+                                    size=13,
+                                    color="#475569",
+                                ),
+                            ],
+                            spacing=2,
+                        ),
+                        input_key_badges[bid],
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column(
+                            [
+                                transcript_field,
+                                ft.Row([btn_analyze, btn_reset], spacing=10),
+                                analyzing_progress_bar,
+                                analyzing_banner,
+                            ],
+                            spacing=12,
+                        ),
+                        padding=20,
+                        bgcolor="#FFFFFF",
+                        border=ft.Border.all(1, "#E2E8F0"),
+                        border_radius=12,
+                    ),
+                    elevation=0,
+                ),
+                input_status_text,
+                result_summary_box,
+            ],
+            spacing=14,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+        )
+
+        # ---------------- 값 확인 및 HWPX 생성 화면 ----------------
+        review_status_text = ft.Text("", size=13)
+        review_busy = ft.ProgressRing(visible=False, width=20, height=20, color="#2563EB")
+
+        def current_key_value() -> str:
+            kf = w.get(form.key_field_id)
+            if isinstance(kf, ft.TextField):
+                return (kf.value or "").strip()
+            return ""
+
+        def on_save_draft(_: ft.ControlEvent) -> None:
+            values = collect_values(w, fields)
+            new_id = document_store.save_document(
+                bid, state["doc_id"][bid], current_key_value(), values, transcript_field.value or ""
+            )
+            state["doc_id"][bid] = new_id
+            refresh_docs()
+            review_status_text.value = f"임시저장 완료 (문서번호 {new_id})"
+            review_status_text.color = "#059669"
+            snack(f"문서함에 저장되었습니다: {new_id}")
+            page.update()
+
+        def on_generate(_: ft.ControlEvent) -> None:
+            if not Path(template_path).exists():
+                review_status_text.value = f"템플릿 서식 파일({template_path})을 찾을 수 없습니다."
+                review_status_text.color = "#DC2626"
+                page.update()
+                return
+            review_busy.visible = True
+            review_status_text.value = "HWPX 문서를 생성하고 있습니다..."
+            review_status_text.color = "#2563EB"
+            page.update()
+            try:
+                values = collect_values(w, fields)
+                # 내보내기 직전에 문서함에도 자동 저장해 작업 내용이 유실되지 않게 한다.
+                new_id = document_store.save_document(
+                    bid, state["doc_id"][bid], current_key_value(), values, transcript_field.value or ""
+                )
+                state["doc_id"][bid] = new_id
+                refresh_docs()
+                data = generate_hwpx_bytes(
+                    template_path, values, fields, form.custom_handlers, form.narrow_field_ratio
+                )
+                review_status_text.value = f"HWPX 문서가 생성되었습니다(문서번호 {new_id}). 저장할 위치를 선택하세요."
+                review_status_text.color = "#059669"
+                page.update()
+                page.run_task(do_save_file, data, form.result_filename, review_status_text)
+            except Exception as exc:
+                review_status_text.value = f"문서 생성 중 오류가 발생했습니다: {exc}"
+                review_status_text.color = "#DC2626"
+                page.update()
+            finally:
+                review_busy.visible = False
+                page.update()
+
+        table_indices = sorted(form.page_labels.keys())
+        tabs_control = ft.Tabs(
+            length=len(table_indices),
+            content=ft.Column(
+                [
+                    ft.TabBar(
+                        tabs=[ft.Tab(label=form.page_labels[idx]) for idx in table_indices],
+                        indicator_color="#2563EB",
+                        label_color="#2563EB",
+                        unselected_label_color="#64748B",
+                    ),
+                    ft.TabBarView(
+                        height=650,
+                        controls=[
+                            ft.Column(
+                                [
+                                    ft.Container(height=10),
+                                    *widgets_for_table(w, fields, form.review_sections, idx),
+                                    ft.Container(height=24),
+                                ],
+                                spacing=0,
+                                scroll=ft.ScrollMode.AUTO,
+                            )
+                            for idx in table_indices
+                        ],
+                    ),
+                ]
+            ),
+        )
+
+        review_status_pill = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, color="#059669", size=15),
+                    ft.Text("서식 데이터 작성 중", size=12, color="#065F46", weight=ft.FontWeight.W_500),
+                ],
+                spacing=6,
+            ),
+            bgcolor="#ECFDF5",
+            border=ft.Border.all(1, "#A7F3D0"),
+            border_radius=999,
+            padding=ft.Padding(left=10, top=4, right=10, bottom=4),
+        )
+
+        action_buttons = ft.Row(
+            [
+                ft.OutlinedButton(
+                    "임시저장",
+                    icon=ft.Icons.SAVE_OUTLINED,
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+                    on_click=on_save_draft,
+                ),
+                ft.FilledButton(
+                    "HWPX 파일 생성 및 저장",
+                    icon=ft.Icons.SAVE,
+                    style=ft.ButtonStyle(bgcolor="#2563EB", color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)),
+                    on_click=on_generate,
+                ),
+                review_busy,
+            ],
+            spacing=10,
+        )
+
+        view_review = ft.Column(
+            controls=[
+                ft.Row(
+                    [
+                        ft.Column(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Text(f"{form.name} — 값 확인 및 HWPX 생성", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                        review_status_pill,
+                                    ],
+                                    spacing=10,
+                                ),
+                                ft.Text(
+                                    "AI가 채운 값(또는 직접 입력한 값)이 정확한지 확인하고 필요 시 수정하세요. "
+                                    "비워둔 항목은 서식 원본이 그대로 유지됩니다.",
+                                    size=13,
+                                    color="#475569",
+                                ),
                             ],
                             expand=True,
                             spacing=2,
                         ),
-                        ft.FilledButton(
-                            "값 확인 및 HWPX 생성으로 이동 →",
-                            icon=ft.Icons.ARROW_FORWARD,
-                            style=ft.ButtonStyle(
-                                bgcolor="#2563EB",
-                                color=ft.Colors.WHITE,
-                                shape=ft.RoundedRectangleBorder(radius=8),
-                            ),
-                            on_click=lambda _: switch_nav(1),
-                        ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
-                bgcolor="#EFF6FF",
-                border=ft.Border.all(1, "#BFDBFE"),
-                border_radius=12,
-                padding=16,
-            )
-            result_summary_box.visible = True
-            snack(f"AI 분석 완료 ({count}개 항목 추출). 값 확인 화면으로 이동할 수 있습니다.")
-        except Exception as exc:
-            input_status_text.value = f"분석 중 오류가 발생했습니다: {exc}"
-            input_status_text.color = "#DC2626"
-            result_summary_box.visible = False
-            snack(f"분석 중 오류 발생: {exc}")
-        finally:
-            btn_analyze.disabled = False
-            btn_analyze.icon = ft.Icons.AUTO_AWESOME
-            btn_analyze.content = "AI로 분석하기"
-            btn_reset.disabled = False
-            analyzing_banner.visible = False
-            analyzing_progress_bar.visible = False
-            page.update()
-
-    btn_analyze.on_click = on_analyze
-    btn_reset.on_click = on_reset_input
-
-    view_input = ft.Column(
-        controls=[
-            ft.Row(
-                [
-                    ft.Column(
+                review_status_text,
+                tabs_control,
+                ft.Container(
+                    content=ft.Row(
                         [
-                            ft.Text("1. 상담내역 입력 및 AI 분석", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
-                            ft.Text(
-                                "상담 대화 내용이나 메모를 입력하면 Gemini AI가 강서구 수요조사카드 서식의 각 항목을 자동으로 추출합니다.",
-                                size=13,
-                                color="#475569",
-                            ),
+                            ft.Text("검토가 완료되면 저장하거나 HWPX 문서로 내보내세요.", size=12, color="#64748B"),
+                            action_buttons,
                         ],
-                        spacing=2,
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
-                    input_key_badge,
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            ),
-            ft.Card(
-                content=ft.Container(
-                    content=ft.Column(
-                        [
-                            transcript_field,
-                            ft.Row(
-                                [
-                                    btn_analyze,
-                                    btn_reset,
-                                ],
-                                spacing=10,
-                            ),
-                            analyzing_progress_bar,
-                            analyzing_banner,
-                        ],
-                        spacing=12,
-                    ),
-                    padding=20,
+                    padding=ft.Padding(left=16, top=12, right=16, bottom=12),
                     bgcolor="#FFFFFF",
                     border=ft.Border.all(1, "#E2E8F0"),
                     border_radius=12,
                 ),
-                elevation=0,
-            ),
-            input_status_text,
-            result_summary_box,
-        ],
-        spacing=14,
-        scroll=ft.ScrollMode.AUTO,
-        expand=True,
-    )
-
-    # -----------------------------------------------------------------------
-    # 2. 값 확인 및 HWPX 생성 화면 컨트롤 (Stitch Section Cards)
-    # -----------------------------------------------------------------------
-    review_status_text = ft.Text("", size=13)
-    review_busy = ft.ProgressRing(visible=False, width=20, height=20, color="#2563EB")
-
-    def on_generate(_: ft.ControlEvent) -> None:
-        if not Path(TEMPLATE_PATH).exists():
-            review_status_text.value = f"템플릿 서식 파일({TEMPLATE_PATH})을 찾을 수 없습니다."
-            review_status_text.color = "#DC2626"
-            page.update()
-            return
-        review_busy.visible = True
-        review_status_text.value = "HWPX 문서를 생성하고 있습니다..."
-        review_status_text.color = "#2563EB"
-        page.update()
-        try:
-            values = collect_values(widgets)
-            data = generate_hwpx_bytes(TEMPLATE_PATH, values)
-            state["generated_bytes"] = data
-            review_status_text.value = "HWPX 문서가 생성되었습니다. 저장할 위치를 선택하세요."
-            review_status_text.color = "#059669"
-            page.update()
-            page.run_task(do_save_file, data)
-        except Exception as exc:
-            review_status_text.value = f"문서 생성 중 오류가 발생했습니다: {exc}"
-            review_status_text.color = "#DC2626"
-            page.update()
-        finally:
-            review_busy.visible = False
-            page.update()
-
-    tabs_control = ft.Tabs(
-        length=2,
-        content=ft.Column(
-            [
-                ft.TabBar(
-                    tabs=[
-                        ft.Tab(label="1쪽 (기본정보 / 생활환경 / 의사소통)"),
-                        ft.Tab(label="2쪽 (사회활동 / 욕구 / 총평)"),
-                    ],
-                    indicator_color="#2563EB",
-                    label_color="#2563EB",
-                    unselected_label_color="#64748B",
-                ),
-                ft.TabBarView(
-                    height=650,
-                    controls=[
-                        ft.Column(
-                            [
-                                ft.Container(height=10),
-                                *widgets_for_table(widgets, 0),
-                                ft.Container(height=24),
-                            ],
-                            spacing=0,
-                            scroll=ft.ScrollMode.AUTO,
-                        ),
-                        ft.Column(
-                            [
-                                ft.Container(height=10),
-                                *widgets_for_table(widgets, 1),
-                                ft.Container(height=24),
-                            ],
-                            spacing=0,
-                            scroll=ft.ScrollMode.AUTO,
-                        ),
-                    ],
-                ),
-            ]
-        ),
-    )
-
-    review_status_pill = ft.Container(
-        content=ft.Row(
-            [
-                ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, color="#059669", size=15),
-                ft.Text("서식 데이터 작성 중", size=12, color="#065F46", weight=ft.FontWeight.W_500),
             ],
-            spacing=6,
-        ),
-        bgcolor="#ECFDF5",
-        border=ft.Border.all(1, "#A7F3D0"),
-        border_radius=999,
-        padding=ft.Padding(left=10, top=4, right=10, bottom=4),
-    )
+            spacing=10,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+        )
 
-    view_review = ft.Column(
-        controls=[
-            ft.Row(
-                [
-                    ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Text("2. 값 확인 및 HWPX 생성", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
-                                    review_status_pill,
-                                ],
-                                spacing=10,
-                            ),
-                            ft.Text(
-                                "AI가 채운 값이 정확한지 확인하고 필요 시 수정하세요. 비워둔 항목은 서식 원본이 그대로 유지됩니다.",
-                                size=13,
-                                color="#475569",
-                            ),
-                        ],
-                        expand=True,
-                        spacing=2,
-                    ),
-                    ft.FilledButton(
-                        "HWPX 파일 생성 및 저장",
-                        icon=ft.Icons.SAVE,
-                        style=ft.ButtonStyle(
-                            bgcolor="#2563EB",
-                            color=ft.Colors.WHITE,
-                            shape=ft.RoundedRectangleBorder(radius=8),
-                        ),
-                        on_click=on_generate,
-                    ),
-                    review_busy,
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            ),
-            review_status_text,
-            tabs_control,
-            ft.Container(
-                content=ft.Row(
-                    [
-                        ft.Text("검토가 완료되면 오른쪽 버튼을 눌러 HWPX 문서를 저장하세요.", size=12, color="#64748B"),
-                        ft.FilledButton(
-                            "HWPX 파일 생성 및 저장",
-                            icon=ft.Icons.SAVE,
-                            style=ft.ButtonStyle(
-                                bgcolor="#2563EB",
-                                color=ft.Colors.WHITE,
-                                shape=ft.RoundedRectangleBorder(radius=8),
-                            ),
-                            on_click=on_generate,
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                ),
-                padding=ft.Padding(left=16, top=12, right=16, bottom=12),
-                bgcolor="#FFFFFF",
-                border=ft.Border.all(1, "#E2E8F0"),
-                border_radius=12,
-            ),
-        ],
-        spacing=10,
-        scroll=ft.ScrollMode.AUTO,
-        expand=True,
-    )
+        return view_docs, view_input, view_review
+
+    per_business: dict[str, tuple[ft.Column, ft.Column, ft.Column]] = {
+        bid: build_business_views(bid, form) for bid, form in forms.FORMS.items()
+    }
 
     # -----------------------------------------------------------------------
-    # 3. 설정 화면 컨트롤
+    # 3. 설정 화면 컨트롤 (업무 공용)
     # -----------------------------------------------------------------------
     api_key_field = ft.TextField(
         label="Gemini API Key",
@@ -906,11 +1016,7 @@ def main(page: ft.Page) -> None:
         state["api_key"] = key
         state["model"] = model
 
-        saved = save_config({
-            "api_key": key,
-            "model": model,
-            "font_size": font_size,
-        })
+        saved = save_config({"api_key": key, "model": model, "font_size": font_size})
 
         update_key_badges()
 
@@ -927,18 +1033,14 @@ def main(page: ft.Page) -> None:
         new_size = int(list(selected_set)[0])
         state["font_size"] = new_size
 
-        # 위젯 및 입력 필드 글자 크기 갱신
-        apply_font_size(widgets, new_size)
-        transcript_field.text_size = new_size
+        for w in widgets.values():
+            apply_font_size(w, new_size)
+        for tf in transcript_fields.values():
+            tf.text_size = new_size
         api_key_field.text_size = new_size
         model_field.text_size = new_size
 
-        # 설정 파일에도 즉시 저장
-        save_config({
-            "api_key": state["api_key"],
-            "model": state["model"],
-            "font_size": new_size,
-        })
+        save_config({"api_key": state["api_key"], "model": state["model"], "font_size": new_size})
         snack(f"글자 크기가 {new_size}px로 변경되었습니다.")
         page.update()
 
@@ -956,8 +1058,8 @@ def main(page: ft.Page) -> None:
 
     view_settings = ft.Column(
         controls=[
-            ft.Text("3. 설정", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
-            ft.Text("Gemini AI API 키 및 화면 폰트 크기 등 앱 동작 환경을 설정합니다.", size=13, color="#475569"),
+            ft.Text("설정", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
+            ft.Text("Gemini AI API 키 및 화면 폰트 크기 등 앱 동작 환경을 설정합니다. (두 업무 공통 적용)", size=13, color="#475569"),
             ft.Card(
                 content=ft.Container(
                     content=ft.Column(
@@ -978,9 +1080,7 @@ def main(page: ft.Page) -> None:
                                         "API 키 저장",
                                         icon=ft.Icons.SAVE,
                                         style=ft.ButtonStyle(
-                                            bgcolor="#2563EB",
-                                            color=ft.Colors.WHITE,
-                                            shape=ft.RoundedRectangleBorder(radius=8),
+                                            bgcolor="#2563EB", color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)
                                         ),
                                         on_click=on_save_settings,
                                     ),
@@ -1016,7 +1116,7 @@ def main(page: ft.Page) -> None:
                                 ],
                                 spacing=8,
                             ),
-                            ft.Text("상담 내용 입력창 및 서식 필드 항목들의 글자 크기를 조절합니다.", size=12, color="#64748B"),
+                            ft.Text("입력창 및 서식 필드 항목들의 글자 크기를 조절합니다.", size=12, color="#64748B"),
                             font_segmented_button,
                         ],
                         spacing=12,
@@ -1041,6 +1141,7 @@ def main(page: ft.Page) -> None:
                             ),
                             ft.Text(
                                 "• API 키는 사용자 로컬 PC의 홈 디렉터리(~/.gangseo_counsel_config.json)에만 안전하게 보관됩니다.\n"
+                                "• 저장된 문서는 ~/.gangseo_counsel_docs/ 폴더에 업무별로 보관되며, 외부로 전송되지 않습니다.\n"
                                 "• 본 프로그램은 생년월일, 연락처, 주소 등 민감한 개인정보를 처리하므로 공용 PC 사용 시 유의하시기 바랍니다.",
                                 size=12,
                                 color="#475569",
@@ -1062,18 +1163,62 @@ def main(page: ft.Page) -> None:
     )
 
     # -----------------------------------------------------------------------
+    # 업무 전환 세그먼트 (콘텐츠 상단 고정)
+    # -----------------------------------------------------------------------
+    def on_business_change(e: ft.ControlEvent) -> None:
+        selected_set = e.control.selected
+        if not selected_set:
+            return
+        switch_business(list(selected_set)[0])
+
+    business_switch = ft.SegmentedButton(
+        selected=[state["business_id"]],
+        allow_multiple_selection=False,
+        on_change=on_business_change,
+        segments=[ft.Segment(value=bid, label=ft.Text(forms.FORMS[bid].short_label)) for bid in forms.FORM_ORDER],
+    )
+
+    business_header = ft.Container(
+        content=ft.Row(
+            [
+                ft.Text("현재 업무:", size=13, color="#475569", weight=ft.FontWeight.W_500),
+                business_switch,
+            ],
+            spacing=12,
+        ),
+        padding=ft.Padding(left=0, top=0, right=0, bottom=12),
+    )
+
+    # -----------------------------------------------------------------------
     # 좌측 NavigationRail 및 화면 전환 로직 (Midnight Slate Theme)
     # -----------------------------------------------------------------------
-    def switch_nav(index: int) -> None:
-        nav_rail.selected_index = index
-        view_input.visible = (index == 0)
-        view_review.visible = (index == 1)
-        view_settings.visible = (index == 2)
+    def update_visible() -> None:
+        current_bid = state["business_id"]
+        idx = state["nav_index"]
+        for bid in forms.FORM_ORDER:
+            view_docs, view_input, view_review = per_business[bid]
+            is_current = bid == current_bid
+            view_docs.visible = is_current and idx == 0
+            view_input.visible = is_current and idx == 1
+            view_review.visible = is_current and idx == 2
+        view_settings.visible = idx == 3
+        business_header.visible = idx != 3
+        nav_rail.selected_index = idx
+        if idx == 0:
+            refresh_funcs[current_bid]()
         page.update()
 
+    def switch_nav(index: int) -> None:
+        state["nav_index"] = index
+        update_visible()
+
+    def switch_business(bid: str) -> None:
+        state["business_id"] = bid
+        business_switch.selected = [bid]
+        update_visible()
+
     def on_nav_change(e: ft.ControlEvent) -> None:
-        idx = int(e.control.selected_index)
-        switch_nav(idx)
+        switch_nav(int(e.control.selected_index))
 
     nav_rail = ft.NavigationRail(
         selected_index=0,
@@ -1095,8 +1240,8 @@ def main(page: ft.Page) -> None:
                     ),
                     ft.Column(
                         [
-                            ft.Text("강서구 활동지원", weight=ft.FontWeight.BOLD, size=15, color=ft.Colors.WHITE),
-                            ft.Text("수요조사카드 자동화", size=11, color="#94A3B8"),
+                            ft.Text("강서구 복지업무", weight=ft.FontWeight.BOLD, size=15, color=ft.Colors.WHITE),
+                            ft.Text("자동화 프로그램", size=11, color="#94A3B8"),
                         ],
                         spacing=1,
                     ),
@@ -1107,44 +1252,33 @@ def main(page: ft.Page) -> None:
         ),
         trailing=rail_footer,
         destinations=[
-            ft.NavigationRailDestination(
-                icon=ft.Icons.EDIT_NOTE,
-                selected_icon=ft.Icons.EDIT_NOTE_SHARP,
-                label="상담내역 입력",
-            ),
-            ft.NavigationRailDestination(
-                icon=ft.Icons.CHECKLIST,
-                selected_icon=ft.Icons.CHECKLIST_RTL,
-                label="값 확인 및 HWPX 생성",
-            ),
-            ft.NavigationRailDestination(
-                icon=ft.Icons.SETTINGS_OUTLINED,
-                selected_icon=ft.Icons.SETTINGS,
-                label="설정",
-            ),
+            ft.NavigationRailDestination(icon=ft.Icons.FOLDER_OUTLINED, selected_icon=ft.Icons.FOLDER, label="문서함"),
+            ft.NavigationRailDestination(icon=ft.Icons.EDIT_NOTE, selected_icon=ft.Icons.EDIT_NOTE_SHARP, label="입력(AI 분석)"),
+            ft.NavigationRailDestination(icon=ft.Icons.CHECKLIST, selected_icon=ft.Icons.CHECKLIST_RTL, label="값 확인 및 HWPX 생성"),
+            ft.NavigationRailDestination(icon=ft.Icons.SETTINGS_OUTLINED, selected_icon=ft.Icons.SETTINGS, label="설정"),
         ],
         on_change=on_nav_change,
     )
 
-    # 초기 화면 뷰 가시성 설정
-    view_input.visible = True
-    view_review.visible = False
-    view_settings.visible = False
-
     update_key_badges()
+    update_visible()
 
     # 전체 화면 레이아웃 조립
+    all_views: list[ft.Control] = []
+    for bid in forms.FORM_ORDER:
+        all_views.extend(per_business[bid])
+    all_views.append(view_settings)
+
     page.add(
         ft.Row(
             [
                 nav_rail,
                 ft.VerticalDivider(width=1, color="#E2E8F0"),
                 ft.Container(
-                    content=ft.Stack(
+                    content=ft.Column(
                         [
-                            view_input,
-                            view_review,
-                            view_settings,
+                            business_header,
+                            ft.Container(content=ft.Stack(all_views, expand=True), expand=True),
                         ],
                         expand=True,
                     ),

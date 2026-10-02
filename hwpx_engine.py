@@ -317,10 +317,15 @@ def _ensure_narrow_run_style(doc: HwpxDocument, base_char_pr_id: str, ratio: int
     return doc.styles.ensure_run(base_char_pr_id=base_char_pr_id, ratio=ratio, bold=bold, color=color)
 
 
-def _apply_narrow_field_ratios(doc: HwpxDocument, values: dict[str, Any]) -> None:
+def _apply_narrow_field_ratios(
+    doc: HwpxDocument,
+    values: dict[str, Any],
+    fields: list[dict[str, Any]],
+    narrow_field_ratio: dict[str, int],
+) -> None:
     tables = doc.tables.all
-    for f in FIELDS:
-        ratio = NARROW_FIELD_RATIO.get(f["id"])
+    for f in fields:
+        ratio = narrow_field_ratio.get(f["id"])
         if ratio is None or not values.get(f["id"]):
             continue
         row, col = f["anchor"]
@@ -336,16 +341,28 @@ def _apply_narrow_field_ratios(doc: HwpxDocument, values: dict[str, Any]) -> Non
 # ---------------------------------------------------------------------------
 
 
-def apply_fields(doc: HwpxDocument, values: dict[str, Any]) -> None:
-    """values(필드 id -> 추출값)를 FIELDS 정의에 따라 doc에 적용한다.
+def apply_fields(
+    doc: HwpxDocument,
+    values: dict[str, Any],
+    fields: list[dict[str, Any]] = FIELDS,
+    custom_handlers: dict[str, Any] | None = None,
+    narrow_field_ratio: dict[str, int] | None = None,
+) -> None:
+    """values(필드 id -> 추출값)를 fields 정의(기본값: counsel.hwpx의 FIELDS)에 따라
+    doc에 적용한다. 다른 서식(예: meeting_field_map.FIELDS)을 채울 때는 그 서식의
+    fields/custom_handlers를 넘기면 된다.
 
     주의: python-hwpx의 cell.set_text()는 셀의 기존 문단 수만큼 빈 줄을
     누적시키는 특성이 있다(같은 셀에 set_text를 여러 번 호출하면 호출할
     때마다 빈 문단이 늘어남). 여러 필드가 같은 셀(anchor)을 공유하는 경우가
     많으므로(예: 방 개수 + 이용공간, 신체활동/가사활동/사회활동 지원 등),
     셀별로 최종 텍스트를 메모리에서 모두 조합한 뒤 셀당 set_text()를 딱
-    한 번만 호출한다. FIELDS 안에서 같은 anchor를 참조하는 필드들은 정의된
-    순서대로 누적 적용되므로, field_map.py에서 그 순서를 바꾸지 말 것."""
+    한 번만 호출한다. fields 안에서 같은 anchor를 참조하는 필드들은 정의된
+    순서대로 누적 적용되므로, 그 순서를 바꾸지 말 것."""
+    if custom_handlers is None:
+        custom_handlers = CUSTOM_HANDLERS
+    if narrow_field_ratio is None:
+        narrow_field_ratio = NARROW_FIELD_RATIO
     tables = doc.tables.all
     text_cache: dict[tuple[int, tuple[int, int]], str] = {}
     touched: set[tuple[int, tuple[int, int]]] = set()
@@ -362,7 +379,7 @@ def apply_fields(doc: HwpxDocument, values: dict[str, Any]) -> None:
         text_cache[key] = new_text
         touched.add(key)
 
-    for f in FIELDS:
+    for f in fields:
         table_idx = f["table"]
         anchor = f["anchor"]
         kind = f["kind"]
@@ -412,7 +429,7 @@ def apply_fields(doc: HwpxDocument, values: dict[str, Any]) -> None:
                 )
 
         elif kind == "custom":
-            handler = CUSTOM_HANDLERS.get(f["id"])
+            handler = custom_handlers.get(f["id"])
             if handler:
                 new_text = handler(text, values)
                 if new_text is not None:
@@ -430,14 +447,21 @@ def apply_fields(doc: HwpxDocument, values: dict[str, Any]) -> None:
         # 빈 줄이 누적된다.
         set_cell_text_preserving_layout(tables[table_idx].cell(row, col), text_cache[(table_idx, anchor)])
 
-    _apply_narrow_field_ratios(doc, values)
+    _apply_narrow_field_ratios(doc, values, fields, narrow_field_ratio)
 
 
-def generate_hwpx_bytes(template_path: str, values: dict[str, Any]) -> bytes:
+def generate_hwpx_bytes(
+    template_path: str,
+    values: dict[str, Any],
+    fields: list[dict[str, Any]] = FIELDS,
+    custom_handlers: dict[str, Any] | None = None,
+    narrow_field_ratio: dict[str, int] | None = None,
+) -> bytes:
     """template_path를 열어 values를 채운 뒤 결과 hwpx 파일의 바이트를 반환한다
-    (Streamlit download_button 등에서 사용)."""
+    (Streamlit download_button 등에서 사용). fields/custom_handlers/narrow_field_ratio를
+    넘기면 counsel.hwpx 이외의 다른 서식(예: meeting.hwpx)에도 그대로 재사용 가능하다."""
     doc = HwpxDocument.open(template_path)
-    apply_fields(doc, values)
+    apply_fields(doc, values, fields, custom_handlers, narrow_field_ratio)
     with tempfile.TemporaryDirectory() as tmp:
         out_path = Path(tmp) / "output.hwpx"
         doc.save_to_path(str(out_path))
