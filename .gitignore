@@ -11,5 +11,6 @@ streamlit.log
 *config.json
 dist/
 dist_windows/
+dist_windows_latest/
 build/
 *.spec

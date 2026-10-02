@@ -1221,7 +1221,7 @@ def main(page: ft.Page) -> None:
     nav_buttons: dict[str, ft.Container] = {}
 
     def create_nav_item(route_key: str, label: str, icon_name: str) -> ft.Container:
-        icon_ctrl = ft.Icon(icon_name, size=18, color="#94A3B8")
+        icon_ctrl = ft.Icon(icon_name, size=17, color="#94A3B8")
         label_ctrl = ft.Text(label, size=13, color="#94A3B8")
 
         def handle_click(_: ft.ControlEvent) -> None:
@@ -1244,7 +1244,7 @@ def main(page: ft.Page) -> None:
                 spacing=10,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.Padding(left=12, top=9, right=12, bottom=9),
+            padding=ft.Padding(left=16, top=8, right=10, bottom=8),
             border_radius=8,
             ink=True,
             on_click=handle_click,
@@ -1254,17 +1254,22 @@ def main(page: ft.Page) -> None:
         nav_buttons[route_key] = btn_container
         return btn_container
 
-    def nav_section_header(title: str, icon_name: str, accent_color: str) -> ft.Container:
+    def nav_major_header(title: str, icon_name: str, badge_color: str) -> ft.Container:
         return ft.Container(
             content=ft.Row(
                 [
-                    ft.Icon(icon_name, size=14, color=accent_color),
-                    ft.Text(title, size=11, weight=ft.FontWeight.BOLD, color="#94A3B8"),
+                    ft.Container(
+                        content=ft.Icon(icon_name, size=16, color=ft.Colors.WHITE),
+                        bgcolor=badge_color,
+                        border_radius=6,
+                        padding=5,
+                    ),
+                    ft.Text(title, size=15, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                 ],
-                spacing=6,
+                spacing=8,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.Padding(left=8, top=14, right=8, bottom=4),
+            padding=ft.Padding(left=6, top=14, right=6, bottom=6),
         )
 
     def update_nav_styles(active_route: str, update_controls: bool = True) -> None:
@@ -1314,7 +1319,7 @@ def main(page: ft.Page) -> None:
                 pass
 
     sidebar = ft.Container(
-        width=260,
+        width=270,
         bgcolor="#0F172A",
         content=ft.Column(
             [
@@ -1346,21 +1351,32 @@ def main(page: ft.Page) -> None:
                 ft.Container(
                     content=ft.Column(
                         [
-                            nav_section_header("수요조사카드", ft.Icons.ASSIGNMENT_OUTLINED, "#38BDF8"),
+                            # 1. 수요조사카드 대메뉴 (15px Bold White + 아이콘 뱃지)
+                            nav_major_header("수요조사카드", ft.Icons.ASSIGNMENT_ROUNDED, "#0284C7"),
                             create_nav_item("counsel_input", "상담 입력 (AI 분석)", ft.Icons.EDIT_NOTE),
                             create_nav_item("counsel_review", "서식 확인 및 HWPX", ft.Icons.CHECKLIST),
                             create_nav_item("counsel_docs", "수요조사 문서함", ft.Icons.FOLDER_OUTLINED),
 
-                            ft.Container(height=8),
+                            # 섹션 구분선
+                            ft.Container(
+                                content=ft.Divider(height=1, color="#1E293B"),
+                                padding=ft.Padding(left=6, top=10, right=6, bottom=4),
+                            ),
 
-                            nav_section_header("중점사례 회의록", ft.Icons.GROUPS_OUTLINED, "#A78BFA"),
+                            # 2. 중점사례 회의록 대메뉴 (15px Bold White + 아이콘 뱃지)
+                            nav_major_header("중점사례 회의록", ft.Icons.GROUPS_ROUNDED, "#7C3AED"),
                             create_nav_item("meeting_input", "회의 입력 (AI 분석)", ft.Icons.EDIT_NOTE),
                             create_nav_item("meeting_review", "서식 확인 및 HWPX", ft.Icons.CHECKLIST),
                             create_nav_item("meeting_docs", "회의록 문서함", ft.Icons.FOLDER_OUTLINED),
 
-                            ft.Container(height=8),
+                            # 섹션 구분선
+                            ft.Container(
+                                content=ft.Divider(height=1, color="#1E293B"),
+                                padding=ft.Padding(left=6, top=10, right=6, bottom=4),
+                            ),
 
-                            nav_section_header("시스템 설정", ft.Icons.SETTINGS_OUTLINED, "#94A3B8"),
+                            # 3. 시스템 설정 대메뉴 (15px Bold White + 아이콘 뱃지)
+                            nav_major_header("시스템 설정", ft.Icons.SETTINGS_ROUNDED, "#475569"),
                             create_nav_item("settings", "환경설정 및 API 키", ft.Icons.TUNE_ROUNDED),
                         ],
                         spacing=3,
