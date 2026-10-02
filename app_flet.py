@@ -1,14 +1,14 @@
 """
 app_flet.py
 
-강서구 복지 업무(활동지원급여 수요조사카드 / 중점사례 회의록) 자동 입력 Flet(데스크톱) 앱.
+강서나눔돌봄센터 활동지원 서식 자동화 (수요조사카드 · 중점사례 회의록) Flet 데스크톱 앱.
 Google Stitch AI의 "Civic Trust Desktop" 디자인 시스템을 적용한 프리미엄 UI 버전.
 
 주요 UI/UX:
-  - Midnight Slate(#0F172A) 다크 사이드바 네비게이션
+  - Midnight Slate(#0F172A) 커스텀 사이드바 네비게이션 (서식별 직접 분리 구성)
   - Soft Slate(#F8FAFC) 캔버스 및 Pure White(#FFFFFF) 카드 섹션 분할
-  - 상단 업무 전환(수요조사카드 / 중점사례 회의록) — forms.py 레지스트리 기반
-  - 업무별 문서함(저장/불러오기/수정) → 입력(AI 분석) → 값 확인 및 HWPX 생성 3단계 화면
+  - 좌측 사이드바에서 [수요조사카드] / [중점사례 회의록] 업무를 직관적으로 직접 구분 선택
+  - 서식별 입력(AI 분석) → 서식 확인 및 HWPX 생성 → 문서함(저장/불러오기) 단계별 메뉴 제공
   - Gemini API 키 및 설정 영구 보관 (~/.gangseo_counsel_config.json)
   - 문서함 저장 파일: ~/.gangseo_counsel_docs/<업무>/<생성일자-순번>.json (document_store.py)
   - 폰트 크기(13/15/17/19px) 실시간 변경 및 영구 보관
@@ -330,7 +330,7 @@ def _format_dt(iso_text: str) -> str:
 # Flet Application Main (Stitch Theme)
 # ---------------------------------------------------------------------------
 def main(page: ft.Page) -> None:
-    page.title = "강서구 복지 업무 자동화 (수요조사카드 / 중점사례 회의록)"
+    page.title = "강서나눔돌봄센터 - 활동지원 서식 자동화 (수요조사카드 · 중점사례 회의록)"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = "#F8FAFC"  # Stitch Canvas Slate
 
@@ -344,8 +344,7 @@ def main(page: ft.Page) -> None:
         "api_key": saved_key,
         "model": saved_model,
         "font_size": saved_font_size,
-        "business_id": forms.FORM_ORDER[0],
-        "nav_index": 0,
+        "current_route": "counsel_input",
         "doc_id": {bid: None for bid in forms.FORM_ORDER},
     }
 
@@ -433,7 +432,7 @@ def main(page: ft.Page) -> None:
                     [
                         ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color="#F59E0B", size=16),
                         ft.Text("API Key 미설정 — [설정] 메뉴에서 API 키를 등록해주세요.", color="#92400E", size=12),
-                        ft.TextButton("설정으로 이동", on_click=lambda _: switch_nav(3)),
+                        ft.TextButton("설정으로 이동", on_click=lambda _: navigate_to("settings")),
                     ],
                     spacing=6,
                 )
@@ -489,6 +488,32 @@ def main(page: ft.Page) -> None:
         w = widgets[bid]
         template_path = get_resource_path(form.template_filename)
 
+        is_counsel = (bid == "counsel")
+        badge_text = "활동지원 수요조사카드" if is_counsel else "중점사례 회의록"
+        badge_color = "#2563EB" if is_counsel else "#7C3AED"
+        badge_bg = "#EFF6FF" if is_counsel else "#F5F3FF"
+        badge_border = "#BFDBFE" if is_counsel else "#DDD6FE"
+
+        def make_category_badge() -> ft.Container:
+            return ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(
+                            ft.Icons.ASSIGNMENT_OUTLINED if is_counsel else ft.Icons.GROUPS_OUTLINED,
+                            size=13,
+                            color=badge_color,
+                        ),
+                        ft.Text(badge_text, size=11, weight=ft.FontWeight.BOLD, color=badge_color),
+                    ],
+                    spacing=5,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                bgcolor=badge_bg,
+                border=ft.Border.all(1, badge_border),
+                border_radius=6,
+                padding=ft.Padding(left=8, top=3, right=8, bottom=3),
+            )
+
         # ---------------- 문서함 화면 ----------------
         docs_column = ft.Column(spacing=8)
 
@@ -519,7 +544,7 @@ def main(page: ft.Page) -> None:
                 set_widgets_from_extracted(w, fields, loaded.get("values") or {})
                 transcript_fields[bid].value = loaded.get("transcript") or ""
                 snack(f"문서를 불러왔습니다: {d['key'] or d['doc_id']}")
-                switch_nav(2)
+                navigate_to(f"{bid}_review")
 
             def on_delete(_: ft.ControlEvent) -> None:
                 document_store.delete_document(bid, d["doc_id"])
@@ -560,8 +585,8 @@ def main(page: ft.Page) -> None:
             transcript_fields[bid].value = ""
             input_status_text.value = ""
             result_summary_box.visible = False
-            snack("새 문서를 시작합니다.")
-            switch_nav(1)
+            snack(f"{form.name} 새 문서를 시작합니다.")
+            navigate_to(f"{bid}_input")
 
         view_docs = ft.Column(
             controls=[
@@ -569,10 +594,11 @@ def main(page: ft.Page) -> None:
                     [
                         ft.Column(
                             [
+                                ft.Row([make_category_badge()], spacing=6),
                                 ft.Text(f"{form.name} — 문서함", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
                                 ft.Text("저장된 문서를 불러와 수정하거나, 새 문서를 작성하세요.", size=13, color="#475569"),
                             ],
-                            spacing=2,
+                            spacing=4,
                             expand=True,
                         ),
                         ft.FilledButton(
@@ -718,12 +744,12 @@ def main(page: ft.Page) -> None:
                                 spacing=2,
                             ),
                             ft.FilledButton(
-                                "값 확인 및 HWPX 생성으로 이동 →",
+                                "서식 확인 및 HWPX 생성으로 이동 →",
                                 icon=ft.Icons.ARROW_FORWARD,
                                 style=ft.ButtonStyle(
                                     bgcolor="#2563EB", color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)
                                 ),
-                                on_click=lambda _: switch_nav(2),
+                                on_click=lambda _: navigate_to(f"{bid}_review"),
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -734,7 +760,7 @@ def main(page: ft.Page) -> None:
                     padding=16,
                 )
                 result_summary_box.visible = True
-                snack(f"AI 분석 완료 ({count}개 항목 추출). 값 확인 화면으로 이동할 수 있습니다.")
+                snack(f"AI 분석 완료 ({count}개 항목 추출). 서식 확인 화면으로 이동할 수 있습니다.")
             except Exception as exc:
                 input_status_text.value = f"분석 중 오류가 발생했습니다: {exc}"
                 input_status_text.color = "#DC2626"
@@ -758,6 +784,7 @@ def main(page: ft.Page) -> None:
                     [
                         ft.Column(
                             [
+                                ft.Row([make_category_badge()], spacing=6),
                                 ft.Text(f"{form.name} — 입력 및 AI 분석", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
                                 ft.Text(
                                     "내용을 입력하면 Gemini AI가 서식의 각 항목을 자동으로 추출합니다. "
@@ -766,7 +793,8 @@ def main(page: ft.Page) -> None:
                                     color="#475569",
                                 ),
                             ],
-                            spacing=2,
+                            spacing=4,
+                            expand=True,
                         ),
                         input_key_badges[bid],
                     ],
@@ -854,8 +882,12 @@ def main(page: ft.Page) -> None:
                 page.update()
 
         table_indices = sorted(form.page_labels.keys())
+        # 탭 영역은 남은 높이를 모두 채우고 각 탭 안에서만 스크롤한다. 고정 높이 +
+        # 바깥 화면 스크롤 조합이면 마우스 휠이 안쪽 스크롤에만 먹혀 하단 버튼 바까지
+        # 내려갈 수 없으므로, 바깥(view_review)은 스크롤하지 않고 버튼 바를 하단에 고정한다.
         tabs_control = ft.Tabs(
             length=len(table_indices),
+            expand=True,
             content=ft.Column(
                 [
                     ft.TabBar(
@@ -865,7 +897,7 @@ def main(page: ft.Page) -> None:
                         unselected_label_color="#64748B",
                     ),
                     ft.TabBarView(
-                        height=650,
+                        expand=True,
                         controls=[
                             ft.Column(
                                 [
@@ -879,7 +911,8 @@ def main(page: ft.Page) -> None:
                             for idx in table_indices
                         ],
                     ),
-                ]
+                ],
+                expand=True,
             ),
         )
 
@@ -922,12 +955,14 @@ def main(page: ft.Page) -> None:
                     [
                         ft.Column(
                             [
+                                ft.Row([make_category_badge()], spacing=6),
                                 ft.Row(
                                     [
-                                        ft.Text(f"{form.name} — 값 확인 및 HWPX 생성", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                        ft.Text(f"{form.name} — 서식 확인 및 HWPX 생성", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
                                         review_status_pill,
                                     ],
                                     spacing=10,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                                 ),
                                 ft.Text(
                                     "AI가 채운 값(또는 직접 입력한 값)이 정확한지 확인하고 필요 시 수정하세요. "
@@ -937,7 +972,7 @@ def main(page: ft.Page) -> None:
                                 ),
                             ],
                             expand=True,
-                            spacing=2,
+                            spacing=4,
                         ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -959,7 +994,6 @@ def main(page: ft.Page) -> None:
                 ),
             ],
             spacing=10,
-            scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
 
@@ -1058,8 +1092,27 @@ def main(page: ft.Page) -> None:
 
     view_settings = ft.Column(
         controls=[
-            ft.Text("설정", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
-            ft.Text("Gemini AI API 키 및 화면 폰트 크기 등 앱 동작 환경을 설정합니다. (두 업무 공통 적용)", size=13, color="#475569"),
+            ft.Row(
+                [
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.Icon(ft.Icons.SETTINGS_OUTLINED, size=13, color="#64748B"),
+                                ft.Text("시스템 환경설정", size=11, weight=ft.FontWeight.BOLD, color="#475569"),
+                            ],
+                            spacing=5,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        bgcolor="#F1F5F9",
+                        border=ft.Border.all(1, "#CBD5E1"),
+                        border_radius=6,
+                        padding=ft.Padding(left=8, top=3, right=8, bottom=3),
+                    ),
+                ],
+                spacing=6,
+            ),
+            ft.Text("환경설정 및 API 키 관리", size=22, weight=ft.FontWeight.BOLD, color="#0F172A"),
+            ft.Text("Gemini AI API 키 및 화면 폰트 크기 등 앱 동작 환경을 설정합니다. (모든 서식 공통 적용)", size=13, color="#475569"),
             ft.Card(
                 content=ft.Container(
                     content=ft.Column(
@@ -1163,133 +1216,191 @@ def main(page: ft.Page) -> None:
     )
 
     # -----------------------------------------------------------------------
-    # 업무 전환 세그먼트 (콘텐츠 상단 고정)
+    # 좌측 사이드바 및 통합 라우팅 시스템 (Stitch: Civic Trust Theme)
     # -----------------------------------------------------------------------
-    def on_business_change(e: ft.ControlEvent) -> None:
-        selected_set = e.control.selected
-        if not selected_set:
-            return
-        switch_business(list(selected_set)[0])
+    nav_buttons: dict[str, ft.Container] = {}
 
-    business_switch = ft.SegmentedButton(
-        selected=[state["business_id"]],
-        allow_multiple_selection=False,
-        on_change=on_business_change,
-        segments=[ft.Segment(value=bid, label=ft.Text(forms.FORMS[bid].short_label)) for bid in forms.FORM_ORDER],
-    )
+    def create_nav_item(route_key: str, label: str, icon_name: str) -> ft.Container:
+        icon_ctrl = ft.Icon(icon_name, size=18, color="#94A3B8")
+        label_ctrl = ft.Text(label, size=13, color="#94A3B8")
 
-    business_header = ft.Container(
-        content=ft.Row(
-            [
-                ft.Text("현재 업무:", size=13, color="#475569", weight=ft.FontWeight.W_500),
-                business_switch,
-            ],
-            spacing=12,
-        ),
-        padding=ft.Padding(left=0, top=0, right=0, bottom=12),
-    )
+        def handle_click(_: ft.ControlEvent) -> None:
+            navigate_to(route_key)
 
-    # -----------------------------------------------------------------------
-    # 좌측 NavigationRail 및 화면 전환 로직 (Midnight Slate Theme)
-    # -----------------------------------------------------------------------
-    def update_visible() -> None:
-        current_bid = state["business_id"]
-        idx = state["nav_index"]
-        for bid in forms.FORM_ORDER:
-            view_docs, view_input, view_review = per_business[bid]
-            is_current = bid == current_bid
-            view_docs.visible = is_current and idx == 0
-            view_input.visible = is_current and idx == 1
-            view_review.visible = is_current and idx == 2
-        view_settings.visible = idx == 3
-        business_header.visible = idx != 3
-        nav_rail.selected_index = idx
-        if idx == 0:
-            refresh_funcs[current_bid]()
-        page.update()
+        def handle_hover(e: ft.HoverEvent) -> None:
+            if state["current_route"] != route_key:
+                btn_container.bgcolor = "#1E293B" if e.data == "true" else None
+                try:
+                    btn_container.update()
+                except Exception:
+                    pass
 
-    def switch_nav(index: int) -> None:
-        state["nav_index"] = index
-        update_visible()
-
-    def switch_business(bid: str) -> None:
-        state["business_id"] = bid
-        business_switch.selected = [bid]
-        update_visible()
-
-    def on_nav_change(e: ft.ControlEvent) -> None:
-        switch_nav(int(e.control.selected_index))
-
-    nav_rail = ft.NavigationRail(
-        selected_index=0,
-        label_type=ft.NavigationRailLabelType.ALL,
-        extended=True,
-        min_extended_width=230,
-        bgcolor="#0F172A",
-        indicator_color="#2563EB",
-        unselected_label_text_style=ft.TextStyle(color="#94A3B8", size=13),
-        selected_label_text_style=ft.TextStyle(color=ft.Colors.WHITE, size=13, weight=ft.FontWeight.BOLD),
-        leading=ft.Container(
+        btn_container = ft.Container(
             content=ft.Row(
                 [
-                    ft.Container(
-                        content=ft.Icon(ft.Icons.DESCRIPTION_ROUNDED, color=ft.Colors.WHITE, size=20),
-                        bgcolor="#2563EB",
-                        border_radius=8,
-                        padding=8,
-                    ),
-                    ft.Column(
-                        [
-                            ft.Text("강서구 복지업무", weight=ft.FontWeight.BOLD, size=15, color=ft.Colors.WHITE),
-                            ft.Text("자동화 프로그램", size=11, color="#94A3B8"),
-                        ],
-                        spacing=1,
-                    ),
+                    icon_ctrl,
+                    label_ctrl,
                 ],
                 spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.Padding(left=16, top=20, right=16, bottom=20),
+            padding=ft.Padding(left=12, top=9, right=12, bottom=9),
+            border_radius=8,
+            ink=True,
+            on_click=handle_click,
+            on_hover=handle_hover,
+        )
+        btn_container.data = {"icon": icon_ctrl, "label": label_ctrl}
+        nav_buttons[route_key] = btn_container
+        return btn_container
+
+    def nav_section_header(title: str, icon_name: str, accent_color: str) -> ft.Container:
+        return ft.Container(
+            content=ft.Row(
+                [
+                    ft.Icon(icon_name, size=14, color=accent_color),
+                    ft.Text(title, size=11, weight=ft.FontWeight.BOLD, color="#94A3B8"),
+                ],
+                spacing=6,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding(left=8, top=14, right=8, bottom=4),
+        )
+
+    def update_nav_styles(active_route: str, update_controls: bool = True) -> None:
+        for key, btn in nav_buttons.items():
+            is_active = (key == active_route)
+            icon_ctrl: ft.Icon = btn.data["icon"]
+            label_ctrl: ft.Text = btn.data["label"]
+            if is_active:
+                btn.bgcolor = "#2563EB"
+                icon_ctrl.color = ft.Colors.WHITE
+                label_ctrl.color = ft.Colors.WHITE
+                label_ctrl.weight = ft.FontWeight.W_600
+            else:
+                btn.bgcolor = None
+                icon_ctrl.color = "#94A3B8"
+                label_ctrl.color = "#94A3B8"
+                label_ctrl.weight = ft.FontWeight.NORMAL
+            if update_controls:
+                try:
+                    btn.update()
+                except Exception:
+                    pass
+
+    views_by_route: dict[str, ft.Control] = {
+        "counsel_input": per_business["counsel"][1],
+        "counsel_review": per_business["counsel"][2],
+        "counsel_docs": per_business["counsel"][0],
+        "meeting_input": per_business["meeting"][1],
+        "meeting_review": per_business["meeting"][2],
+        "meeting_docs": per_business["meeting"][0],
+        "settings": view_settings,
+    }
+
+    def navigate_to(route_key: str, update_page: bool = True) -> None:
+        state["current_route"] = route_key
+        for r_key, view in views_by_route.items():
+            view.visible = (r_key == route_key)
+        update_nav_styles(route_key, update_controls=update_page)
+        if route_key == "counsel_docs":
+            refresh_funcs["counsel"]()
+        elif route_key == "meeting_docs":
+            refresh_funcs["meeting"]()
+        if update_page:
+            try:
+                page.update()
+            except Exception:
+                pass
+
+    sidebar = ft.Container(
+        width=260,
+        bgcolor="#0F172A",
+        content=ft.Column(
+            [
+                # App Branding Header
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Container(
+                                content=ft.Icon(ft.Icons.DESCRIPTION_ROUNDED, color=ft.Colors.WHITE, size=22),
+                                bgcolor="#2563EB",
+                                border_radius=8,
+                                padding=8,
+                            ),
+                            ft.Column(
+                                [
+                                    ft.Text("강서나눔돌봄센터", weight=ft.FontWeight.BOLD, size=15, color=ft.Colors.WHITE),
+                                    ft.Text("활동지원 서식 자동화", size=11, color="#94A3B8"),
+                                ],
+                                spacing=1,
+                            ),
+                        ],
+                        spacing=10,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    padding=ft.Padding(left=16, top=20, right=16, bottom=16),
+                ),
+                ft.Divider(height=1, color="#1E293B"),
+                # Navigation Menu Items (Scrollable if necessary)
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            nav_section_header("수요조사카드", ft.Icons.ASSIGNMENT_OUTLINED, "#38BDF8"),
+                            create_nav_item("counsel_input", "상담 입력 (AI 분석)", ft.Icons.EDIT_NOTE),
+                            create_nav_item("counsel_review", "서식 확인 및 HWPX", ft.Icons.CHECKLIST),
+                            create_nav_item("counsel_docs", "수요조사 문서함", ft.Icons.FOLDER_OUTLINED),
+
+                            ft.Container(height=8),
+
+                            nav_section_header("중점사례 회의록", ft.Icons.GROUPS_OUTLINED, "#A78BFA"),
+                            create_nav_item("meeting_input", "회의 입력 (AI 분석)", ft.Icons.EDIT_NOTE),
+                            create_nav_item("meeting_review", "서식 확인 및 HWPX", ft.Icons.CHECKLIST),
+                            create_nav_item("meeting_docs", "회의록 문서함", ft.Icons.FOLDER_OUTLINED),
+
+                            ft.Container(height=8),
+
+                            nav_section_header("시스템 설정", ft.Icons.SETTINGS_OUTLINED, "#94A3B8"),
+                            create_nav_item("settings", "환경설정 및 API 키", ft.Icons.TUNE_ROUNDED),
+                        ],
+                        spacing=3,
+                        scroll=ft.ScrollMode.AUTO,
+                    ),
+                    expand=True,
+                    padding=ft.Padding(left=10, top=10, right=10, bottom=10),
+                ),
+                # Pinned Footer (Gemini AI Status)
+                rail_footer,
+            ],
+            spacing=0,
+            expand=True,
         ),
-        trailing=rail_footer,
-        destinations=[
-            ft.NavigationRailDestination(icon=ft.Icons.FOLDER_OUTLINED, selected_icon=ft.Icons.FOLDER, label="문서함"),
-            ft.NavigationRailDestination(icon=ft.Icons.EDIT_NOTE, selected_icon=ft.Icons.EDIT_NOTE_SHARP, label="입력(AI 분석)"),
-            ft.NavigationRailDestination(icon=ft.Icons.CHECKLIST, selected_icon=ft.Icons.CHECKLIST_RTL, label="값 확인 및 HWPX 생성"),
-            ft.NavigationRailDestination(icon=ft.Icons.SETTINGS_OUTLINED, selected_icon=ft.Icons.SETTINGS, label="설정"),
-        ],
-        on_change=on_nav_change,
     )
 
-    update_key_badges()
-    update_visible()
+    # 초기 화면 활성화 설정 (컨트롤 마운트 전에는 update 호출을 생략)
+    navigate_to("counsel_input", update_page=False)
 
-    # 전체 화면 레이아웃 조립
-    all_views: list[ft.Control] = []
-    for bid in forms.FORM_ORDER:
-        all_views.extend(per_business[bid])
-    all_views.append(view_settings)
+    all_views: list[ft.Control] = list(views_by_route.values())
 
     page.add(
         ft.Row(
             [
-                nav_rail,
+                sidebar,
                 ft.VerticalDivider(width=1, color="#E2E8F0"),
                 ft.Container(
-                    content=ft.Column(
-                        [
-                            business_header,
-                            ft.Container(content=ft.Stack(all_views, expand=True), expand=True),
-                        ],
-                        expand=True,
-                    ),
+                    content=ft.Stack(all_views, expand=True),
                     expand=True,
-                    padding=20,
+                    padding=24,
                     bgcolor="#F8FAFC",
                 ),
             ],
             expand=True,
+            spacing=0,
         )
     )
+
+    update_key_badges()
+    page.update()
 
 
 if __name__ == "__main__":
